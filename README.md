@@ -15,7 +15,7 @@ skeleton back, the timings, and the accessibility requirements.
 ## Install
 
 ```swift
-.package(url: "https://github.com/maazsurti/Skeletons.git", from: "1.2.0")
+.package(url: "https://github.com/maazsurti/Skeletons.git", from: "1.2.1")
 ```
 
 ## Products
@@ -44,7 +44,7 @@ and follow light and dark mode.
 
 A loading field takes `fieldSurface`, `fieldBorder`, `fieldText`, `fieldTextFont`, `fieldHeight`,
 `fieldRadius` and `fieldPadding` from the same theme. Point them at the app's field metrics so the
-placeholder sits where the real field sits.
+field sits where the real field sits.
 
 ## Compose a skeleton
 
@@ -101,10 +101,11 @@ takes its label from `loadingText`. Its `isShimmering` covers every block inside
 - `SkeletonBlock(height:width:radius:)`, `SkeletonPhoto(width:height:aspect:radius:)`,
   `SkeletonCircle(diameter:)` — everything else a response fills.
 - `SkeletonCard(padding:radius:background:border:shadow:)` — the real card's chrome around content.
-- `SkeletonField(placeholder:icon:showsChevron:valueWidthFraction:height:radius:padding:)` — a text
-  field in the loaded field's chrome, its placeholder reading over a shimmering value line.
-- `SkeletonPickerRow(label:icon:showsChevron:valueWidthFraction:height:radius:padding:)` — a field
-  whose value is chosen elsewhere: label and chevron stay, the value after them shimmers.
+- `SkeletonField(placeholder:icon:leading:showsChevron:valueWidthFraction:height:radius:padding:)` —
+  a text field in the loaded field's chrome. No placeholder is drawn: the shimmering value line is
+  the text, and the placeholder copy, when given, only sets that line's width.
+- `SkeletonPickerRow(label:icon:leading:showsChevron:valueWidthFraction:height:radius:padding:)` — a
+  field whose value is chosen elsewhere: label and chevron stay, the value after them shimmers.
 - `SkeletonRows(count:spacing:padding:_:)` — N copies of a preset, or of a shape written at the call
   site.
 - `SkeletonSpacer()` — takes the spare width in a row.
@@ -114,7 +115,13 @@ takes its label from `loadingText`. Its `isShimmering` covers every block inside
   `.hugging`. Lines, blocks and photos also take `.radius(_:)`.
 
 A field is not a block. `SkeletonField` and `SkeletonPickerRow` draw the loaded control's chrome and
-copy, and shimmer only the region the value occupies.
+real copy, and shimmer only the region the value occupies.
+
+A loading field shows no placeholder: the value line stands in for the text. An accessory the app
+already has — a country picker, an icon — stays real, keeps its own size and the field's full
+height, and takes no shimmer of its own; pass the real view as `leading: SkeletonReal(view)` and
+only the value area after it shimmers. An accessory whose own content is fetched takes a skeleton
+element in the same place, and that element is what shimmers then.
 
 ## Swap it for the content
 

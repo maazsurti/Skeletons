@@ -19,8 +19,14 @@ skeleton in a host app. Follow them; they are what a reader sees.
 - **Fixed slots.** Give every placeholder cell its own size and let a spacer take the row's spare
   width; a block that stretches to fill tells the reader nothing.
 - **Fields keep their chrome.** A text field or picker keeps its real surface, border, radius,
-  height, padding, label, placeholder, icon and chevron, and only the region the value occupies
-  shimmers. Draw it with `SkeletonField` or `SkeletonPickerRow`, never as one block.
+  height, padding, label, accessory and chevron, and only the region the value occupies shimmers.
+  Draw it with `SkeletonField` or `SkeletonPickerRow`, never as one block.
+- **A loading field shows no placeholder.** The value line stands in for the text. Pass the
+  placeholder only to have the line take that copy's width; never draw it as copy over the line.
+- **A known accessory stays real.** A country picker or an icon the app already has is the real view
+  at its own size, with nothing shimmering on it; only the value area after it shimmers. Pass it as
+  `leading: SkeletonReal(view)`. An accessory whose own content is fetched takes a skeleton element
+  in the same place instead.
 
 ## Prefer the builder
 
