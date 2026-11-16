@@ -36,6 +36,27 @@ struct SkeletonShimmerTests {
         #expect(rightToLeft.to == leftToRight.from)
     }
 
+    // A block on screen sweeps, and stops the moment it is hidden.
+    @Test func sweepRunsInAWindowAndStopsWhenHidden() throws {
+        try #require(!UIAccessibility.isReduceMotionEnabled)
+
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 600))
+        let block = SkeletonView.block(height: 40)
+        block.translatesAutoresizingMaskIntoConstraints = false
+        window.addSubview(block)
+        NSLayoutConstraint.activate([
+            block.topAnchor.constraint(equalTo: window.topAnchor, constant: 20),
+            block.leadingAnchor.constraint(equalTo: window.leadingAnchor, constant: 20),
+            block.widthAnchor.constraint(equalToConstant: 200),
+        ])
+        window.layoutIfNeeded()
+
+        #expect(block.activeSweep != nil)
+
+        block.isHidden = true
+        #expect(block.activeSweep == nil)
+    }
+
     // The start time is always in the past and never more than one sweep behind, which is what
     // puts a block added later in the same phase as the blocks already on screen.
     @Test func startTimeSitsWithinTheSweepAlreadyRunning() {

@@ -207,6 +207,11 @@ public final class SkeletonView: UIView {
         highlight.removeAnimation(forKey: Self.sweepKey)
     }
 
+    /// The sweep attached right now, so a test can check it runs and stops.
+    var activeSweep: CAAnimation? {
+        highlight.animation(forKey: Self.sweepKey)
+    }
+
     private func startPulse() {
         guard !isPulsing else { return }
         isPulsing = true
