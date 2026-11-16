@@ -6,7 +6,11 @@ flashing.
 
 The package draws the blocks. Each screen places them in its own cards and cells.
 
-Rules for adding skeletons to a screen are in `AGENTS.md`.
+## For agents
+
+Adding or changing a skeleton in a host app: read [`AGENTS.md`](./AGENTS.md) first. It carries the
+rules — what to grey out and what to keep real, how a field loads, when a selection brings the
+skeleton back, the timings, and the accessibility requirements.
 
 ## Install
 
