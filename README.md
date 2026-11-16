@@ -1,11 +1,12 @@
 # Skeletons
 
-Placeholder blocks for UIKit screens while their content loads: one shared shimmer band across
-every block on screen, a Reduce Motion pulse, and a switcher that keeps the exchange from flashing.
+Placeholder blocks for UIKit screens while their content loads. All blocks share one shimmer band,
+a Reduce Motion pulse replaces it when that setting is on, and a switcher keeps the exchange from
+flashing.
 
-The package draws the blocks only. Each screen places them in its own cards and cells.
+The package draws the blocks. Each screen places them in its own cards and cells.
 
-Agents adding skeletons to a screen: follow `AGENTS.md`.
+Rules for adding skeletons to a screen are in `AGENTS.md`.
 
 ## Install
 
@@ -19,7 +20,7 @@ Agents adding skeletons to a screen: follow `AGENTS.md`.
 
 ## Set up
 
-Set the theme once at launch, beside the rest of your app's theming:
+Set the theme once at launch, beside the rest of the app's theming:
 
 ```swift
 import Skeletons
@@ -34,15 +35,16 @@ SkeletonTheme.current = SkeletonTheme(
 )
 ```
 
-Every value has a system default, so `SkeletonTheme()` works as-is. The default colours are
-dynamic and follow light and dark mode. A loading field's chrome takes `fieldSurface`,
-`fieldBorder`, `fieldText`, `fieldTextFont`, `fieldHeight`, `fieldRadius` and `fieldPadding` from
-the same theme; set them to the app's own field metrics so the field lands where the real one does.
+Every value has a system default, so `SkeletonTheme()` works as it is. Default colours are dynamic
+and follow light and dark mode.
+
+A loading field takes `fieldSurface`, `fieldBorder`, `fieldText`, `fieldTextFont`, `fieldHeight`,
+`fieldRadius` and `fieldPadding` from the same theme. Point them at the app's field metrics so the
+placeholder sits where the real field sits.
 
 ## Compose a skeleton
 
-Declare the shape you are waiting for; the layout takes its spacing, radii and line heights from
-the theme:
+Declare the shape. Spacing, radii and line heights come from the theme:
 
 ```swift
 let skeleton = SkeletonLayout {
@@ -60,8 +62,7 @@ let skeleton = SkeletonLayout {
 }
 ```
 
-The elements are covered under [Elements](#elements). Blocks carry no layout of their own, so the
-same screen can also place them by hand:
+Blocks carry no layout of their own, so a screen can also place them by hand:
 
 ```swift
 let title = SkeletonView.line(height: 16, widthFraction: 0.6)
@@ -78,43 +79,43 @@ let skeleton = SkeletonContainerView(content: layout)
 - `SkeletonView.line(height:width:widthFraction:)` — one line of text. Without a width it takes the
   width its container gives it; `widthFraction` is a share of the superview's width.
 - `SkeletonView.circle(diameter:)` — avatars, icons, thumbnails.
-- `SkeletonView.block(height:cornerRadius:)` — anything else; give it constraints from your layout.
+- `SkeletonView.block(height:cornerRadius:)` — anything else; give it constraints from the layout.
 - `SkeletonView(cornerRadius:)` — the plain block, for a corner radius the factories do not cover.
 
 `SkeletonContainerView` gives VoiceOver one "Loading" element in place of the individual blocks and
-takes its label from `loadingText`, so the text can be localised. It also carries
-`isShimmering` for every block inside it.
+takes its label from `loadingText`. Its `isShimmering` covers every block inside it.
 
 ## Elements
 
-- `SkeletonLayout` — the root: a vertical arrangement, one `SkeletonContainerView` and one VoiceOver
+- `SkeletonLayout` — the root: a vertical arrangement, one `SkeletonContainerView`, one VoiceOver
   "Loading". Takes `spacing`, `padding` and `alignment`.
 - `SkeletonColumn` / `SkeletonRow` — vertical and horizontal stacks, with `spacing`, `padding` and
   `alignment`; columns lead by default, rows fill.
-- `SkeletonLine(style, width:widthFraction:)` — a text line; `SkeletonTextStyle` is `.title`,
-  `.headline`, `.body`, `.caption` or `.custom(size)`, and the height comes from
+- `SkeletonLine(style, width:widthFraction:)` — a text line. `SkeletonTextStyle` is `.title`,
+  `.headline`, `.body`, `.caption` or `.custom(size)`; the height comes from
   `SkeletonTheme.lineHeight`.
 - `SkeletonBlock(height:width:radius:)`, `SkeletonPhoto(width:height:aspect:radius:)`,
   `SkeletonCircle(diameter:)` — everything else a response fills.
-- `SkeletonCard(padding:radius:background:border:shadow:)` — the real card's chrome around its content.
+- `SkeletonCard(padding:radius:background:border:shadow:)` — the real card's chrome around content.
 - `SkeletonField(placeholder:icon:showsChevron:valueWidthFraction:height:radius:padding:)` — a text
-  field at the loaded field's chrome, its placeholder reading over a shimmering value line.
+  field in the loaded field's chrome, its placeholder reading over a shimmering value line.
 - `SkeletonPickerRow(label:icon:showsChevron:valueWidthFraction:height:radius:padding:)` — a field
-  whose value is chosen elsewhere: the label and chevron stay, the value after them shimmers.
-- `SkeletonRows(count:spacing:padding:_:)` — N copies of a preset or of a shape written at the call site.
+  whose value is chosen elsewhere: label and chevron stay, the value after them shimmers.
+- `SkeletonRows(count:spacing:padding:_:)` — N copies of a preset, or of a shape written at the call
+  site.
 - `SkeletonSpacer()` — takes the spare width in a row.
 - `SkeletonReal(view)` — a real view (copy, a heading, a control) inside the shape.
 - Presets: `.listRow`, `.cardRow`, `.priceColumn`, `.chipRow`, `.formField`, `.pickerRow`.
 - Modifiers on any element: `.width(_:)`, `.height(_:)`, `.widthFraction(_:)`, `.padding(_:)`,
-  `.hugging`; lines, blocks and photos also take `.radius(_:)`.
+  `.hugging`. Lines, blocks and photos also take `.radius(_:)`.
 
-A field is not a block: `SkeletonField` and `SkeletonPickerRow` draw the loaded control's own
-chrome and copy, and shimmer only the region the value occupies.
+A field is not a block. `SkeletonField` and `SkeletonPickerRow` draw the loaded control's chrome and
+copy, and shimmer only the region the value occupies.
 
 ## Swap it for the content
 
-`SkeletonSwitcher` owns the timings, not the layout: put the skeleton and the content in the same
-place, one over the other, and tell the switcher what happened.
+`SkeletonSwitcher` owns the timings, not the layout. Put the skeleton and the content in the same
+place, one over the other, and tell the switcher what happened:
 
 ```swift
 private lazy var switcher = SkeletonSwitcher(
@@ -135,22 +136,21 @@ func load() {
 - The skeleton appears only if the load is still running after 150 ms.
 - Once it appears it stays for at least 300 ms.
 - Skeleton and content cross-dissolve over 200 ms.
-- `startLoading()` again puts the skeleton back up with the same timings, so a retry behaves like
-  the first load.
+- `startLoading()` again puts the skeleton back with the same timings, so a retry behaves like the
+  first load.
 
-Pass a `SkeletonSwitcher.Timing` to change the three durations. Both views need a superview; the
-switcher changes only their opacity, and it reads `isSkeletonVisible` for anything else that has to
-know which one is on screen.
+Pass a `SkeletonSwitcher.Timing` to change the three durations. Both views need a superview. The
+switcher changes only their opacity; read `isSkeletonVisible` for anything else that has to know
+which one is on screen.
 
 ## Behaviour
 
-- **One band, one clock.** Every block positions its highlight in window coordinates and starts its
-  sweep on a shared `CACurrentMediaTime()`-aligned timeline, so the blocks read as a single band
-  crossing the screen rather than each one sweeping on its own.
+- **One band, one clock.** Each block positions its highlight in window coordinates and starts on a
+  shared `CACurrentMediaTime()`-aligned timeline, so the blocks read as one band crossing the screen.
 - **Right to left.** When `isRightToLeft` returns true the sweep enters from the trailing edge.
-- **Reduce Motion.** The sweep is replaced by a gentle opacity pulse (0.55 ↔ 1) and the switcher
-  swaps the views without a dissolve. Both react to the setting while the app runs.
-- **Nothing runs while hidden.** A block off-window or hidden stops its animation, and
+- **Reduce Motion.** A gentle opacity pulse (0.55 ↔ 1) replaces the sweep, and the switcher swaps
+  views without a dissolve. Both follow the setting while the app runs.
+- **Nothing runs while hidden.** A block off-window or hidden stops its animation;
   `isShimmering = false` stops it outright.
 
 ## Requirements
