@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.1.2
+
+- A layout accepts loops and conditionals: the content builder flattens groups, so `for` and `if`
+  work inside any container.
+
+## 1.1.1
+
+- Containers take `padding`; rows take a `distribution`; cards take `spacing`; elements take
+  `.aspect`; a preset can be used as an element.
+
 ## 1.1.0
 
 - `SkeletonLayout` and its elements: declare a skeleton as a shape — lines by text style, blocks,

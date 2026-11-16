@@ -23,12 +23,16 @@ public struct SkeletonContent {
 /// Collects the elements declared inside a layout container.
 @resultBuilder
 public enum SkeletonContentBuilder {
-    public static func buildBlock(_ components: SkeletonElement...) -> SkeletonContent {
-        SkeletonContent(components)
+    public static func buildBlock(_ components: SkeletonContent...) -> SkeletonContent {
+        SkeletonContent(components.flatMap(\.elements))
     }
 
-    public static func buildExpression(_ element: SkeletonElement) -> SkeletonElement {
-        element
+    public static func buildExpression(_ element: SkeletonElement) -> SkeletonContent {
+        SkeletonContent([element])
+    }
+
+    public static func buildExpression(_ list: [SkeletonElement]) -> SkeletonContent {
+        SkeletonContent(list)
     }
 
 
