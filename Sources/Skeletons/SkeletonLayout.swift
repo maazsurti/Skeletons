@@ -200,17 +200,20 @@ public struct SkeletonRow: SkeletonElement {
     private let spacing: CGFloat?
     private let padding: UIEdgeInsets
     private let alignment: SkeletonAxisAlignment
+    private let distribution: SkeletonDistribution
 
     public init(
         spacing: CGFloat? = nil,
         padding: CGFloat = 0,
         alignment: SkeletonAxisAlignment = .fill,
+        distribution: SkeletonDistribution = .fill,
         @SkeletonContentBuilder content: () -> SkeletonContent
     ) {
         self.init(
             spacing: spacing,
             padding: UIEdgeInsets(top: padding, left: padding, bottom: padding, right: padding),
             alignment: alignment,
+            distribution: distribution,
             content: content
         )
     }
@@ -219,17 +222,32 @@ public struct SkeletonRow: SkeletonElement {
         spacing: CGFloat? = nil,
         padding: UIEdgeInsets,
         alignment: SkeletonAxisAlignment = .fill,
+        distribution: SkeletonDistribution = .fill,
         @SkeletonContentBuilder content: () -> SkeletonContent
     ) {
         self.content = content()
         self.spacing = spacing
         self.padding = padding
         self.alignment = alignment
+        self.distribution = distribution
     }
 
     public func makeView() -> UIView {
-        SkeletonStack.make(axis: .horizontal, content: content, spacing: spacing, padding: padding, alignment: alignment)
+        SkeletonStack.make(
+            axis: .horizontal,
+            content: content,
+            spacing: spacing,
+            padding: padding,
+            alignment: alignment,
+            distribution: distribution
+        )
     }
+}
+
+/// How a row shares its spare width between its elements.
+public enum SkeletonDistribution {
+    case fill
+    case fillEqually
 }
 
 /// Takes the spare width in a row so the elements around it keep their own size.
@@ -388,6 +406,7 @@ public struct SkeletonReal: SkeletonElement {
 public struct SkeletonCard: SkeletonElement {
     private let content: SkeletonContent
     private let padding: UIEdgeInsets
+    private let spacing: CGFloat?
     private let radius: CGFloat?
     private let background: UIColor?
     private let border: UIColor?
@@ -395,6 +414,7 @@ public struct SkeletonCard: SkeletonElement {
 
     public init(
         padding: CGFloat = 0,
+        spacing: CGFloat? = nil,
         radius: CGFloat? = nil,
         background: UIColor? = nil,
         border: UIColor? = nil,
@@ -403,6 +423,7 @@ public struct SkeletonCard: SkeletonElement {
     ) {
         self.init(
             padding: UIEdgeInsets(top: padding, left: padding, bottom: padding, right: padding),
+            spacing: spacing,
             radius: radius,
             background: background,
             border: border,
@@ -413,6 +434,7 @@ public struct SkeletonCard: SkeletonElement {
 
     public init(
         padding: UIEdgeInsets,
+        spacing: CGFloat? = nil,
         radius: CGFloat? = nil,
         background: UIColor? = nil,
         border: UIColor? = nil,
@@ -421,6 +443,7 @@ public struct SkeletonCard: SkeletonElement {
     ) {
         self.content = content()
         self.padding = padding
+        self.spacing = spacing
         self.radius = radius
         self.background = background
         self.border = border
@@ -432,12 +455,13 @@ public struct SkeletonCard: SkeletonElement {
     }
 
     public func padding(_ insets: UIEdgeInsets) -> SkeletonCard {
-        SkeletonCard(padding: insets, radius: radius, background: background, border: border, shadow: shadow, content: content)
+        SkeletonCard(padding: insets, spacing: spacing, radius: radius, background: background, border: border, shadow: shadow, content: content)
     }
 
     /// A card over elements that are already collected.
     public init(
         padding: UIEdgeInsets,
+        spacing: CGFloat? = nil,
         radius: CGFloat? = nil,
         background: UIColor? = nil,
         border: UIColor? = nil,
@@ -446,6 +470,7 @@ public struct SkeletonCard: SkeletonElement {
     ) {
         self.content = content
         self.padding = padding
+        self.spacing = spacing
         self.radius = radius
         self.background = background
         self.border = border
@@ -472,9 +497,9 @@ public struct SkeletonCard: SkeletonElement {
         let body = SkeletonStack.make(
             axis: .vertical,
             content: content,
-            spacing: theme.spacing,
+            spacing: spacing ?? theme.spacing,
             padding: padding,
-            alignment: .leading
+            alignment: .fill
         )
         card.addSubview(body)
         NSLayoutConstraint.activate([
@@ -498,7 +523,7 @@ public struct SkeletonRows: SkeletonElement {
     private let makeRow: () -> SkeletonElement
 
     /// Repeats a preset row.
-    public init(count: Int, spacing: CGFloat = 0, padding: CGFloat = 0, _ preset: SkeletonPreset) {
+    public init(count: Int, _ preset: SkeletonPreset, spacing: CGFloat = 0, padding: CGFloat = 0) {
         self.init(count: count, spacing: spacing, padding: padding) { preset.element }
     }
 
@@ -546,18 +571,21 @@ public struct SkeletonRows: SkeletonElement {
 // MARK: - Presets
 
 /// The shapes this package's screens keep repeating. A preset is the whole row or field, at the
-/// geometry the loaded screen uses.
-public enum SkeletonPreset {
+/// geometry the loaded screen uses, and can be used anywhere an element can.
+public enum SkeletonPreset: SkeletonElement {
     /// A list row: 40pt photo, a title and a caption, and the amount on the trailing edge.
     case listRow
     /// A card row: an 84 × 64 tile, two lines of copy, and a 64 × 40 button.
     case cardRow
     /// A trailing price column: the small "from" over the price and a count.
     case priceColumn
-    /// One row of option chips.
-    case chipRow
     /// One input box.
     case formField
+
+    @MainActor
+    public func makeView() -> UIView {
+        element.makeView()
+    }
 
     @MainActor
     var element: SkeletonElement {
@@ -587,11 +615,6 @@ public enum SkeletonPreset {
                 SkeletonLine(.custom(11), width: 34)
                 SkeletonLine(.custom(17), width: 56)
                 SkeletonLine(.caption, width: 44)
-            }
-        case .chipRow:
-            return SkeletonRow(spacing: 8, alignment: .fill) {
-                SkeletonBlock(height: 54, radius: 12)
-                SkeletonBlock(height: 54, radius: 12)
             }
         case .formField:
             return SkeletonBlock(height: 54, radius: 12)
@@ -640,6 +663,12 @@ public extension SkeletonElement {
         SkeletonSized(base: self, width: nil, height: nil, widthFraction: nil, padsInFraction: false, insets: insets)
     }
 
+    /// Gives the element an aspect ratio: its height follows its width.
+    @MainActor
+    func aspect(_ ratio: CGFloat) -> SkeletonElement {
+        SkeletonSized(base: self, width: nil, height: nil, widthFraction: nil, padsInFraction: false, aspect: ratio)
+    }
+
     /// Keeps the element at its own width and height instead of stretching into the container.
     @MainActor
     var hugging: SkeletonElement {
@@ -657,6 +686,7 @@ private struct SkeletonSized: SkeletonElement {
     let padsInFraction: Bool
     var insets: UIEdgeInsets = .zero
     var hugging = false
+    var aspect: CGFloat? = nil
 
     func makeView() -> UIView {
         let view = base.makeView()
@@ -665,6 +695,9 @@ private struct SkeletonSized: SkeletonElement {
         }
         if let height {
             view.heightAnchor.constraint(equalToConstant: height).isActive = true
+        }
+        if let aspect {
+            view.heightAnchor.constraint(equalTo: view.widthAnchor, multiplier: aspect).isActive = true
         }
         if hugging {
             view.setContentHuggingPriority(.required, for: .horizontal)
@@ -699,12 +732,14 @@ enum SkeletonStack {
         content: SkeletonContent,
         spacing: CGFloat?,
         padding: UIEdgeInsets,
-        alignment: SkeletonAxisAlignment
+        alignment: SkeletonAxisAlignment,
+        distribution: SkeletonDistribution = .fill
     ) -> UIStackView {
         let stack = UIStackView()
         stack.axis = axis
         stack.spacing = spacing ?? SkeletonTheme.current.spacing
         stack.alignment = alignment.ui(axis: axis)
+        stack.distribution = distribution == .fillEqually ? .fillEqually : .fill
         for element in content.elements {
             stack.addArrangedSubview(element.makeView())
         }

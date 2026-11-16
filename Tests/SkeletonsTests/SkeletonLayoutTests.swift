@@ -61,7 +61,7 @@ struct SkeletonLayoutTests {
 
     @Test func rowsRepeatOneShapeTheCountTimes() {
         withTheme {
-            let rows = SkeletonRows(count: 5, spacing: 12, padding: 4, .listRow).makeView() as? UIStackView
+            let rows = SkeletonRows(count: 5, .listRow, spacing: 12, padding: 4).makeView() as? UIStackView
 
             #expect(rows?.arrangedSubviews.count == 5)
             #expect(rows?.spacing == 12)
