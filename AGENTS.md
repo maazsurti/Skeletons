@@ -84,9 +84,9 @@ moves.
 
 ## Working in this repo
 
-- `Sources/Skeletons/` — `SkeletonView` (blocks), `SkeletonContainerView` (VoiceOver's single
-  "Loading" element), `SkeletonSwitcher` and `SkeletonScheduler` (150 / 300 ms and the 200 ms
-  dissolve), `SkeletonTheme`, `ShimmerTimeline`.
+- `Sources/Skeletons/` — `SkeletonView` (blocks), `SkeletonField` (fields and pickers, their chrome and
+  their value line), `SkeletonContainerView` (VoiceOver's single "Loading" element), `SkeletonSwitcher`
+  and `SkeletonScheduler` (150 / 300 ms and the 200 ms dissolve), `SkeletonTheme`, `ShimmerTimeline`.
 - `Tests/SkeletonsTests/` — `xcodebuild test -scheme Skeletons -destination 'platform=iOS Simulator,id=<udid>'`
   keeps the shimmer, the switcher and the layout honest.
 - Keep screen layout out of the package: a block never constrains itself beyond the size its factory
