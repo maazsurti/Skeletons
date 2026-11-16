@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.2.2
+
+- A stated width is a preference: a placeholder keeps the width it was given while it fits and
+  shrinks in a narrower container instead of breaking a constraint. Heights stay required.
+- A row's height is its tallest element; a row no longer stretches a short copy column to a photo's
+  height. Rows center by default.
+- Flush placeholder lines — a vertical run at `spacing: 0` with no padding between them — draw as
+  one block with rounded outer corners and no seam. Unequal widths draw as one stepped block.
+- The sweep runs as a wave: `SkeletonTheme.shimmerStagger` sets the delay between one block and the
+  next, in reading order, and the phase wraps inside a sweep.
+
 ## 1.2.0
 
 - `SkeletonField` and `SkeletonPickerRow` draw a loading field at the loaded control's own chrome —

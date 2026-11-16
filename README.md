@@ -1,8 +1,8 @@
 # Skeletons
 
-Placeholder blocks for UIKit screens while their content loads. All blocks share one shimmer band,
-a Reduce Motion pulse replaces it when that setting is on, and a switcher keeps the exchange from
-flashing.
+Placeholder blocks for UIKit screens while their content loads. The blocks carry one shimmer band
+that crosses them as a wave, a Reduce Motion pulse replaces it when that setting is on, and a
+switcher keeps the exchange from flashing.
 
 The package draws the blocks. Each screen places them in its own cards and cells.
 
@@ -15,7 +15,7 @@ skeleton back, the timings, and the accessibility requirements.
 ## Install
 
 ```swift
-.package(url: "https://github.com/maazsurti/Skeletons.git", from: "1.2.1")
+.package(url: "https://github.com/maazsurti/Skeletons.git", from: "1.2.2")
 ```
 
 ## Products
@@ -34,6 +34,7 @@ SkeletonTheme.current = SkeletonTheme(
     highlight: .skeletonHighlight,
     cornerRadius: 8,
     shimmerDuration: 1.2,
+    shimmerStagger: 0.15,
     loadingText: String(localized: "Loading"),
     isRightToLeft: { Locale.current.language.characterDirection == .rightToLeft }
 )
@@ -84,7 +85,12 @@ let skeleton = SkeletonContainerView(content: layout)
   width its container gives it; `widthFraction` is a share of the superview's width.
 - `SkeletonView.circle(diameter:)` — avatars, icons, thumbnails.
 - `SkeletonView.block(height:cornerRadius:)` — anything else; give it constraints from the layout.
-- `SkeletonView(cornerRadius:)` — the plain block, for a corner radius the factories do not cover.
+- `SkeletonView(cornerRadius:corners:)` — the plain block, for a corner radius the factories do not
+  cover. `corners` names the corners that round.
+
+A width a call site states is a preference: the block keeps it while it fits and gives way in a
+container that is narrower, so a wide line never forces its host into an unsatisfiable layout. A
+height is the block's own assertion and always holds.
 
 `SkeletonContainerView` gives VoiceOver one "Loading" element in place of the individual blocks and
 takes its label from `loadingText`. Its `isShimmering` covers every block inside it.
@@ -94,7 +100,8 @@ takes its label from `loadingText`. Its `isShimmering` covers every block inside
 - `SkeletonLayout` — the root: a vertical arrangement, one `SkeletonContainerView`, one VoiceOver
   "Loading". Takes `spacing`, `padding` and `alignment`.
 - `SkeletonColumn` / `SkeletonRow` — vertical and horizontal stacks, with `spacing`, `padding` and
-  `alignment`; columns lead by default, rows fill.
+  `alignment`; columns lead by default, rows center. A row's height is its tallest element and a
+  row never stretches a child vertically, so a short copy column beside a tall photo lays out.
 - `SkeletonLine(style, width:widthFraction:)` — a text line. `SkeletonTextStyle` is `.title`,
   `.headline`, `.body`, `.caption` or `.custom(size)`; the height comes from
   `SkeletonTheme.lineHeight`.
@@ -113,6 +120,11 @@ takes its label from `loadingText`. Its `isShimmering` covers every block inside
 - Presets: `.listRow`, `.cardRow`, `.priceColumn`, `.chipRow`, `.formField`, `.pickerRow`.
 - Modifiers on any element: `.width(_:)`, `.height(_:)`, `.widthFraction(_:)`, `.padding(_:)`,
   `.hugging`. Lines, blocks and photos also take `.radius(_:)`.
+
+Lines with nothing between them — a column or layout at `spacing: 0`, with no padding on the
+elements — draw as one block: one continuous fill with rounded outer corners and no seam where the
+lines meet. A gap of any size keeps them as separate bars. When the flush lines differ in width the
+run reads as one stepped block, and each line keeps the width it asked for.
 
 A field is not a block. `SkeletonField` and `SkeletonPickerRow` draw the loaded control's chrome and
 real copy, and shimmer only the region the value occupies.
@@ -156,9 +168,14 @@ which one is on screen.
 
 ## Behaviour
 
-- **One band, one clock.** Each block positions its highlight in window coordinates and starts on a
-  shared `CACurrentMediaTime()`-aligned timeline, so the blocks read as one band crossing the screen.
-- **Right to left.** When `isRightToLeft` returns true the sweep enters from the trailing edge.
+- **One band, a wave.** Each block positions its highlight in window coordinates on a shared
+  `CACurrentMediaTime()`-aligned clock, and each block adds the phase its place on screen gives it:
+  `shimmerStagger` seconds after the one before it, top to bottom and then leading to trailing. The
+  phase wraps inside one sweep, so a block added late starts mid-wave rather than waiting. A fused
+  run of lines counts as one place and crosses as one surface. `shimmerStagger` is 0 puts every
+  block back in phase.
+- **Right to left.** When `isRightToLeft` returns true the sweep enters from the trailing edge and the
+  wave runs from the trailing edge across.
 - **Reduce Motion.** A gentle opacity pulse (0.55 ↔ 1) replaces the sweep, and the switcher swaps
   views without a dissolve. Both follow the setting while the app runs.
 - **Nothing runs while hidden.** A block off-window or hidden stops its animation;

@@ -16,6 +16,9 @@ skeleton in a host app. Follow them; they are what a reader sees.
 - **Match the real geometry.** Same container, background, border, padding, corner radius, row
   height and spacing, and a block as tall as the real line's box, so nothing moves when the content
   lands.
+- **A row's height is its tallest element.** A row keeps every child at the height that child
+  asserts, so a short copy column beside a tall photo needs nothing special; the photo sets the
+  row and the column sits centered in it.
 - **Fixed slots.** Give every placeholder cell its own size and let a spacer take the row's spare
   width; a block that stretches to fill tells the reader nothing.
 - **Fields keep their chrome.** A text field or picker keeps its real surface, border, radius,
@@ -52,9 +55,11 @@ SkeletonLayout(spacing: 14) {
 
 Every container takes `padding` (`CGFloat` or `UIEdgeInsets`), `spacing` and `alignment`; every
 element takes `.width`, `.height`, `.widthFraction`, `.padding` and `.hugging`, and the shapes take
-`.radius`. Use `.listRow`, `.cardRow`, `.priceColumn`, `.chipRow`, `.formField` and `.pickerRow` for
-the rows and fields the app repeats; add a preset only when a screen uses it. Reach for a raw
-`SkeletonView` only where a real view's layout cannot be declared.
+`.radius`. A stated width is a preference and gives way in a narrow container; a stated height
+holds. Lines with no spacing and no padding between them fuse into one block, so pass `spacing` when
+they should read as separate bars. Use `.listRow`, `.cardRow`, `.priceColumn`, `.chipRow`,
+`.formField` and `.pickerRow` for the rows and fields the app repeats; add a preset only when a
+screen uses it. Reach for a raw `SkeletonView` only where a real view's layout cannot be declared.
 
 ## When a skeleton appears
 
