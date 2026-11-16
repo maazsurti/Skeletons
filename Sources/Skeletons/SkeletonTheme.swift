@@ -35,6 +35,27 @@ public struct SkeletonTheme {
     /// lands exactly where the label it replaces will.
     public var lineHeight: (CGFloat) -> CGFloat
 
+    /// The fill of a loading field or picker row.
+    public var fieldSurface: UIColor
+
+    /// The border a loading field or picker row draws.
+    public var fieldBorder: UIColor
+
+    /// The colour of the placeholder or label that stays readable inside a loading field.
+    public var fieldText: UIColor
+
+    /// The font that placeholder or label is drawn in.
+    public var fieldTextFont: UIFont
+
+    /// The height a loading field uses when it does not name its own.
+    public var fieldHeight: CGFloat
+
+    /// The corner radius a loading field uses when it does not name its own.
+    public var fieldRadius: CGFloat
+
+    /// The inset from a loading field's leading and trailing edges when it does not name its own.
+    public var fieldPadding: CGFloat
+
     public init(
         base: UIColor = SkeletonTheme.defaultBase,
         highlight: UIColor = SkeletonTheme.defaultHighlight,
@@ -47,7 +68,14 @@ public struct SkeletonTheme {
         spacing: CGFloat = 8,
         cardRadius: CGFloat = 16,
         shadow: SkeletonShadow = .card,
-        lineHeight: @escaping (CGFloat) -> CGFloat = { ceil(UIFont.systemFont(ofSize: $0).lineHeight) }
+        lineHeight: @escaping (CGFloat) -> CGFloat = { ceil(UIFont.systemFont(ofSize: $0).lineHeight) },
+        fieldSurface: UIColor = SkeletonTheme.defaultFieldSurface,
+        fieldBorder: UIColor = SkeletonTheme.defaultFieldBorder,
+        fieldText: UIColor = SkeletonTheme.defaultFieldText,
+        fieldTextFont: UIFont = UIFont.systemFont(ofSize: 16),
+        fieldHeight: CGFloat = 54,
+        fieldRadius: CGFloat = 12,
+        fieldPadding: CGFloat = 14
     ) {
         self.base = base
         self.highlight = highlight
@@ -59,6 +87,13 @@ public struct SkeletonTheme {
         self.cardRadius = cardRadius
         self.shadow = shadow
         self.lineHeight = lineHeight
+        self.fieldSurface = fieldSurface
+        self.fieldBorder = fieldBorder
+        self.fieldText = fieldText
+        self.fieldTextFont = fieldTextFont
+        self.fieldHeight = fieldHeight
+        self.fieldRadius = fieldRadius
+        self.fieldPadding = fieldPadding
     }
 
     /// A light grey block fill that lifts in dark mode.
@@ -74,6 +109,23 @@ public struct SkeletonTheme {
             ? UIColor(white: 1, alpha: 0.28)
             : UIColor(white: 1, alpha: 1)
     }
+
+    /// A field's own fill: white on a light screen, a quiet lift on a dark one.
+    public static let defaultFieldSurface = UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(white: 1, alpha: 0.06)
+            : UIColor(white: 1, alpha: 1)
+    }
+
+    /// A field's 1 pt border, muted in both appearances.
+    public static let defaultFieldBorder = UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(white: 1, alpha: 0.18)
+            : UIColor(white: 0.85, alpha: 1)
+    }
+
+    /// The placeholder inside a field, muted in both appearances.
+    public static let defaultFieldText = UIColor.placeholderText
 
     nonisolated(unsafe) public static var current = SkeletonTheme()
 }

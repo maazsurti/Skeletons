@@ -10,7 +10,7 @@ Agents adding skeletons to a screen: follow `AGENTS.md`.
 ## Install
 
 ```swift
-.package(url: "https://github.com/maazsurti/Skeletons.git", from: "1.1.0")
+.package(url: "https://github.com/maazsurti/Skeletons.git", from: "1.2.0")
 ```
 
 ## Products
@@ -35,7 +35,9 @@ SkeletonTheme.current = SkeletonTheme(
 ```
 
 Every value has a system default, so `SkeletonTheme()` works as-is. The default colours are
-dynamic and follow light and dark mode.
+dynamic and follow light and dark mode. A loading field's chrome takes `fieldSurface`,
+`fieldBorder`, `fieldText`, `fieldTextFont`, `fieldHeight`, `fieldRadius` and `fieldPadding` from
+the same theme; set them to the app's own field metrics so the field lands where the real one does.
 
 ## Compose a skeleton
 
@@ -95,12 +97,19 @@ takes its label from `loadingText`, so the text can be localised. It also carrie
 - `SkeletonBlock(height:width:radius:)`, `SkeletonPhoto(width:height:aspect:radius:)`,
   `SkeletonCircle(diameter:)` — everything else a response fills.
 - `SkeletonCard(padding:radius:background:border:shadow:)` — the real card's chrome around its content.
+- `SkeletonField(placeholder:icon:showsChevron:valueWidthFraction:height:radius:padding:)` — a text
+  field at the loaded field's chrome, its placeholder reading over a shimmering value line.
+- `SkeletonPickerRow(label:icon:showsChevron:valueWidthFraction:height:radius:padding:)` — a field
+  whose value is chosen elsewhere: the label and chevron stay, the value after them shimmers.
 - `SkeletonRows(count:spacing:padding:_:)` — N copies of a preset or of a shape written at the call site.
 - `SkeletonSpacer()` — takes the spare width in a row.
 - `SkeletonReal(view)` — a real view (copy, a heading, a control) inside the shape.
-- Presets: `.listRow`, `.cardRow`, `.priceColumn`, `.chipRow`, `.formField`.
+- Presets: `.listRow`, `.cardRow`, `.priceColumn`, `.chipRow`, `.formField`, `.pickerRow`.
 - Modifiers on any element: `.width(_:)`, `.height(_:)`, `.widthFraction(_:)`, `.padding(_:)`,
   `.hugging`; lines, blocks and photos also take `.radius(_:)`.
+
+A field is not a block: `SkeletonField` and `SkeletonPickerRow` draw the loaded control's own
+chrome and copy, and shimmer only the region the value occupies.
 
 ## Swap it for the content
 

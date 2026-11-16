@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.2.0
+
+- `SkeletonField` and `SkeletonPickerRow` draw a loading field at the loaded control's own chrome —
+  surface, border, radius, height, padding, placeholder or label, leading icon and chevron — with
+  only the value area shimmering.
+- `SkeletonTheme` gains `fieldSurface`, `fieldBorder`, `fieldText`, `fieldTextFont`, `fieldHeight`,
+  `fieldRadius` and `fieldPadding`.
+- The `.formField` preset draws `SkeletonField`; `.pickerRow` is new.
+
 ## 1.1.2
 
 - A layout accepts loops and conditionals: the content builder flattens groups, so `for` and `if`

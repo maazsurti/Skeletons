@@ -584,8 +584,10 @@ public enum SkeletonPreset: SkeletonElement {
     case cardRow
     /// A trailing price column: the small "from" over the price and a count.
     case priceColumn
-    /// One input box.
+    /// One text field at its real chrome, its placeholder and its value area.
     case formField
+    /// One field whose value is chosen elsewhere, with its chevron.
+    case pickerRow
 
     @MainActor
     public func makeView() -> UIView {
@@ -622,7 +624,9 @@ public enum SkeletonPreset: SkeletonElement {
                 SkeletonLine(.caption, width: 44)
             }
         case .formField:
-            return SkeletonBlock(height: 54, radius: 12)
+            return SkeletonField()
+        case .pickerRow:
+            return SkeletonPickerRow()
         }
     }
 }

@@ -18,6 +18,9 @@ skeleton in a host app. Follow them; they are what a reader sees.
   lands.
 - **Fixed slots.** Give every placeholder cell its own size and let a spacer take the row's spare
   width; a block that stretches to fill tells the reader nothing.
+- **Fields keep their chrome.** A text field or picker keeps its real surface, border, radius,
+  height, padding, label, placeholder, icon and chevron, and only the region the value occupies
+  shimmers. Draw it with `SkeletonField` or `SkeletonPickerRow`, never as one block.
 
 ## Prefer the builder
 
@@ -43,9 +46,9 @@ SkeletonLayout(spacing: 14) {
 
 Every container takes `padding` (`CGFloat` or `UIEdgeInsets`), `spacing` and `alignment`; every
 element takes `.width`, `.height`, `.widthFraction`, `.padding` and `.hugging`, and the shapes take
-`.radius`. Use `.listRow`, `.cardRow`, `.priceColumn`, `.chipRow` and `.formField` for the rows and
-fields the app repeats; add a preset only when a screen uses it. Reach for a raw `SkeletonView`
-only where a real view's layout cannot be declared.
+`.radius`. Use `.listRow`, `.cardRow`, `.priceColumn`, `.chipRow`, `.formField` and `.pickerRow` for
+the rows and fields the app repeats; add a preset only when a screen uses it. Reach for a raw
+`SkeletonView` only where a real view's layout cannot be declared.
 
 ## When a skeleton appears
 
