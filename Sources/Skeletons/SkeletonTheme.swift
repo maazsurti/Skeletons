@@ -22,6 +22,19 @@ public struct SkeletonTheme {
     /// Sweeps run from the trailing edge when this returns true.
     public var isRightToLeft: () -> Bool
 
+    /// The gap a layout uses between its elements when one is not named.
+    public var spacing: CGFloat
+
+    /// The corner radius a card uses when it does not name its own.
+    public var cardRadius: CGFloat
+
+    /// The soft shadow a card can draw.
+    public var shadow: SkeletonShadow
+
+    /// The height of one line box for a font size. Set it to your app's font metrics so a line block
+    /// lands exactly where the label it replaces will.
+    public var lineHeight: (CGFloat) -> CGFloat
+
     public init(
         base: UIColor = SkeletonTheme.defaultBase,
         highlight: UIColor = SkeletonTheme.defaultHighlight,
@@ -30,7 +43,11 @@ public struct SkeletonTheme {
         loadingText: String = "Loading",
         isRightToLeft: @escaping () -> Bool = {
             UIApplication.shared.userInterfaceLayoutDirection == .rightToLeft
-        }
+        },
+        spacing: CGFloat = 8,
+        cardRadius: CGFloat = 16,
+        shadow: SkeletonShadow = .card,
+        lineHeight: @escaping (CGFloat) -> CGFloat = { ceil(UIFont.systemFont(ofSize: $0).lineHeight) }
     ) {
         self.base = base
         self.highlight = highlight
@@ -38,6 +55,10 @@ public struct SkeletonTheme {
         self.shimmerDuration = shimmerDuration
         self.loadingText = loadingText
         self.isRightToLeft = isRightToLeft
+        self.spacing = spacing
+        self.cardRadius = cardRadius
+        self.shadow = shadow
+        self.lineHeight = lineHeight
     }
 
     /// A light grey block fill that lifts in dark mode.
@@ -55,4 +76,40 @@ public struct SkeletonTheme {
     }
 
     nonisolated(unsafe) public static var current = SkeletonTheme()
+}
+
+/// The soft shadow a skeleton card can draw, so a placeholder card reads as the raised card it
+/// stands in for.
+public struct SkeletonShadow {
+    public var color: UIColor
+    public var opacity: Float
+    public var radius: CGFloat
+    public var offset: CGSize
+
+    public init(
+        color: UIColor = .black,
+        opacity: Float = 0.05,
+        radius: CGFloat = 9,
+        offset: CGSize = CGSize(width: 0, height: 5)
+    ) {
+        self.color = color
+        self.opacity = opacity
+        self.radius = radius
+        self.offset = offset
+    }
+
+    /// No shadow.
+    public static let none = SkeletonShadow(opacity: 0, radius: 0, offset: .zero)
+
+    /// A raised card's shadow.
+    public static let card = SkeletonShadow()
+
+    /// Draws this shadow on `view`. The view keeps its own corner radius; it must not clip to
+    /// bounds, or the shadow is cut off.
+    public func apply(to view: UIView) {
+        view.layer.shadowColor = color.cgColor
+        view.layer.shadowOpacity = opacity
+        view.layer.shadowRadius = radius
+        view.layer.shadowOffset = offset
+    }
 }

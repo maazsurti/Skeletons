@@ -19,6 +19,34 @@ skeleton in a host app. Follow them; they are what a reader sees.
 - **Fixed slots.** Give every placeholder cell its own size and let a spacer take the row's spare
   width; a block that stretches to fill tells the reader nothing.
 
+## Prefer the builder
+
+A skeleton is a shape, not a pile of blocks. Declare it with `SkeletonLayout` and its elements; the
+theme supplies spacing, radii and line heights, and a call only names what differs.
+
+```swift
+SkeletonLayout(spacing: 14) {
+    SkeletonLine(.title)
+    SkeletonCard(padding: 14, background: .surface, border: .border) {
+        SkeletonRow(spacing: 14) {
+            SkeletonPhoto(width: 84, height: 64, radius: 12)
+            SkeletonColumn(spacing: 2, padding: 4) {
+                SkeletonLine(.headline, widthFraction: 0.6)
+                SkeletonLine(.body, widthFraction: 0.9)
+                SkeletonPreset.priceColumn.element
+            }
+        }
+    }
+    SkeletonRows(count: 5, spacing: 12, padding: 4, .listRow)
+}
+```
+
+Every container takes `padding` (`CGFloat` or `UIEdgeInsets`), `spacing` and `alignment`; every
+element takes `.width`, `.height`, `.widthFraction`, `.padding` and `.hugging`, and the shapes take
+`.radius`. Use `.listRow`, `.cardRow`, `.priceColumn`, `.chipRow` and `.formField` for the rows and
+fields the app repeats; add a preset only when a screen uses it. Reach for a raw `SkeletonView`
+only where a real view's layout cannot be declared.
+
 ## When a skeleton appears
 
 - **First paint only.** A screen that can draw itself from local state or defaults renders them and
@@ -56,7 +84,8 @@ moves.
 - `Sources/Skeletons/` — `SkeletonView` (blocks), `SkeletonContainerView` (VoiceOver's single
   "Loading" element), `SkeletonSwitcher` and `SkeletonScheduler` (150 / 300 ms and the 200 ms
   dissolve), `SkeletonTheme`, `ShimmerTimeline`.
-- `Tests/SkeletonsTests/` — `swift test` (macOS host) keeps the shimmer and switcher honest.
+- `Tests/SkeletonsTests/` — `xcodebuild test -scheme Skeletons -destination 'platform=iOS Simulator,id=<udid>'`
+  keeps the shimmer, the switcher and the layout honest.
 - Keep screen layout out of the package: a block never constrains itself beyond the size its factory
   was given, and the switcher changes opacity only.
 - README-only changes need no release. A behaviour change needs a new tag, and the app's dependency

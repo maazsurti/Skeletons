@@ -10,7 +10,7 @@ Agents adding skeletons to a screen: follow `AGENTS.md`.
 ## Install
 
 ```swift
-.package(url: "https://github.com/maazsurti/Skeletons.git", from: "1.0.0")
+.package(url: "https://github.com/maazsurti/Skeletons.git", from: "1.1.0")
 ```
 
 ## Products
@@ -39,8 +39,27 @@ dynamic and follow light and dark mode.
 
 ## Compose a skeleton
 
-Blocks carry no layout of their own. Build the screen's real layout with placeholders in place of
-its content:
+Declare the shape you are waiting for; the layout takes its spacing, radii and line heights from
+the theme:
+
+```swift
+let skeleton = SkeletonLayout {
+    SkeletonLine(.title)
+    SkeletonCard(padding: 14, background: .surface, border: .border) {
+        SkeletonRow(spacing: 14) {
+            SkeletonPhoto(width: 84, height: 64, radius: 12)
+            SkeletonColumn(spacing: 2) {
+                SkeletonLine(.headline, widthFraction: 0.6)
+                SkeletonLine(.body, widthFraction: 0.9)
+            }
+        }
+    }
+    SkeletonRows(count: 5, spacing: 12, padding: 4, .listRow)
+}
+```
+
+The elements are covered under [Elements](#elements). Blocks carry no layout of their own, so the
+same screen can also place them by hand:
 
 ```swift
 let title = SkeletonView.line(height: 16, widthFraction: 0.6)
@@ -63,6 +82,25 @@ let skeleton = SkeletonContainerView(content: layout)
 `SkeletonContainerView` gives VoiceOver one "Loading" element in place of the individual blocks and
 takes its label from `loadingText`, so the text can be localised. It also carries
 `isShimmering` for every block inside it.
+
+## Elements
+
+- `SkeletonLayout` — the root: a vertical arrangement, one `SkeletonContainerView` and one VoiceOver
+  "Loading". Takes `spacing`, `padding` and `alignment`.
+- `SkeletonColumn` / `SkeletonRow` — vertical and horizontal stacks, with `spacing`, `padding` and
+  `alignment`; columns lead by default, rows fill.
+- `SkeletonLine(style, width:widthFraction:)` — a text line; `SkeletonTextStyle` is `.title`,
+  `.headline`, `.body`, `.caption` or `.custom(size)`, and the height comes from
+  `SkeletonTheme.lineHeight`.
+- `SkeletonBlock(height:width:radius:)`, `SkeletonPhoto(width:height:aspect:radius:)`,
+  `SkeletonCircle(diameter:)` — everything else a response fills.
+- `SkeletonCard(padding:radius:background:border:shadow:)` — the real card's chrome around its content.
+- `SkeletonRows(count:spacing:padding:_:)` — N copies of a preset or of a shape written at the call site.
+- `SkeletonSpacer()` — takes the spare width in a row.
+- `SkeletonReal(view)` — a real view (copy, a heading, a control) inside the shape.
+- Presets: `.listRow`, `.cardRow`, `.priceColumn`, `.chipRow`, `.formField`.
+- Modifiers on any element: `.width(_:)`, `.height(_:)`, `.widthFraction(_:)`, `.padding(_:)`,
+  `.hugging`; lines, blocks and photos also take `.radius(_:)`.
 
 ## Swap it for the content
 

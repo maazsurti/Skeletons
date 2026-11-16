@@ -19,13 +19,15 @@ public final class SkeletonView: UIView {
     // MARK: - Factories
 
     /// A single line of placeholder text. Without `width` or `widthFraction` the line takes
-    /// whatever width its container gives it.
+    /// whatever width its container gives it. `radius` rounds the line; it falls back to the
+    /// theme's radius.
     public static func line(
         height: CGFloat = 14,
         width: CGFloat? = nil,
-        widthFraction: CGFloat? = nil
+        widthFraction: CGFloat? = nil,
+        radius: CGFloat? = nil
     ) -> SkeletonView {
-        let view = SkeletonView()
+        let view = SkeletonView(cornerRadius: radius)
         view.heightAnchor.constraint(equalToConstant: height).isActive = true
         if let width {
             view.widthAnchor.constraint(equalToConstant: width).isActive = true
