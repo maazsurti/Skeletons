@@ -41,6 +41,21 @@ struct SkeletonFieldTests {
         } + view.subviews.flatMap(skeletonViews(in:))
     }
 
+    /// Every piece of text drawn inside the field.
+    private func labels(in view: UIView) -> [UILabel] {
+        view.subviews.flatMap { subview in
+            (subview as? UILabel).map { [$0] } ?? []
+        } + view.subviews.flatMap(labels(in:))
+    }
+
+    /// A leading accessory at the width a country picker takes, filled so its box can be checked.
+    private func accessory(width: CGFloat = 104) -> UIView {
+        let view = UIView()
+        view.backgroundColor = .darkGray
+        view.widthAnchor.constraint(equalToConstant: width).isActive = true
+        return view
+    }
+
     @Test func fieldKeepsTheChromesOwnGeometry() {
         withTheme {
             let field = SkeletonField().makeView() as? SkeletonFieldChrome
@@ -54,24 +69,33 @@ struct SkeletonFieldTests {
         }
     }
 
-    /// The placeholder is the app's own copy: real text the reader can read while the value loads.
-    @Test func placeholderIsRealTextInsideTheField() {
+    /// A loading field says nothing of its own: the value line is the text.
+    @Test func placeholderIsNeverDrawn() {
         withTheme {
             let field = SkeletonField(placeholder: "Full name").makeView() as! SkeletonFieldChrome
             laidOut(field)
 
-            #expect(field.label?.text == "Full name")
-            #expect(field.label?.textColor == .gray)
-            #expect(field.label?.backgroundColor == .clear)
-            #expect(frame(of: field.label, in: field).minX == 14)
-            #expect(abs(frame(of: field.label, in: field).midY - 27) < 0.001)
+            #expect(field.label == nil)
+            #expect(labels(in: field).isEmpty)
+        }
+    }
+
+    /// The placeholder copy only sizes the line, so it lands where that copy would have.
+    @Test func placeholderSetsTheLinesWidth() {
+        withTheme {
+            let field = SkeletonField(placeholder: "Email").makeView() as! SkeletonFieldChrome
+            laidOut(field)
+
+            let expected = ceil(("Email" as NSString).size(withAttributes: [.font: UIFont.systemFont(ofSize: 16)]).width)
+            #expect(abs(frame(of: field.valueLine, in: field).width - expected) < 0.001)
+            #expect(frame(of: field.valueLine, in: field).width < 320 - 28)
         }
     }
 
     /// Only the value region shimmers: one block, its own width, inside the field's chrome.
     @Test func onlyTheValueAreaShimmers() {
         withTheme {
-            let field = SkeletonField(placeholder: "Email").makeView() as! SkeletonFieldChrome
+            let field = SkeletonField().makeView() as! SkeletonFieldChrome
             laidOut(field)
 
             #expect(skeletonViews(in: field).count == 1)
@@ -83,6 +107,72 @@ struct SkeletonFieldTests {
             #expect(abs(line.minX - 14) < 0.001)
             #expect(line.midY == 27)
             #expect(abs(line.width - (320 - 28) * 0.55) < 0.5)
+        }
+    }
+
+    /// An accessory the app already has — a country picker — stays real at its own size, and the
+    /// value line takes what is left of the field.
+    @Test func leadingAccessoryStaysReal() {
+        withTheme {
+            let picker = accessory()
+            let field = SkeletonField(leading: SkeletonReal(picker), valueWidthFraction: 0.4)
+                .makeView() as! SkeletonFieldChrome
+            laidOut(field)
+
+            #expect(field.leadingView === picker)
+            #expect(field.iconView == nil)
+
+            let box = frame(of: picker, in: field)
+            #expect(box.minX == 0)
+            #expect(box.midY == 27)
+            #expect(abs(box.width - 104) < 0.001)
+            #expect(abs(box.height - 54) < 0.001)
+
+            #expect(skeletonViews(in: picker).isEmpty)
+            #expect(skeletonViews(in: field).count == 1)
+            #expect(skeletonViews(in: field).first === field.valueLine)
+
+            let line = frame(of: field.valueLine, in: field)
+            #expect(abs(line.minX - (104 + 14)) < 0.001)
+            #expect(abs(line.width - ((320 - 104 - 28) * 0.4)) < 0.5)
+        }
+    }
+
+    /// A picker row keeps its real label after a leading accessory.
+    @Test func pickerRowKeepsItsLabelAfterALeadingAccessory() {
+        withTheme {
+            let picker = accessory()
+            let row = SkeletonPickerRow(label: "Code", leading: SkeletonReal(picker))
+                .makeView() as! SkeletonFieldChrome
+            laidOut(row)
+
+            #expect(row.leadingView === picker)
+            #expect(row.label?.text == "Code")
+            #expect(abs(frame(of: row.label, in: row).minX - (104 + 14)) < 0.001)
+            #expect(frame(of: row.valueLine, in: row).minX > frame(of: row.label, in: row).maxX)
+            #expect(skeletonViews(in: row).count == 1)
+        }
+    }
+
+    /// The value line is the field's one animation: the accessory draws no sweep of its own.
+    @Test func valueLineShimmersAndTheAccessoryDoesNot() throws {
+        try #require(!UIAccessibility.isReduceMotionEnabled)
+
+        withTheme {
+            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 600))
+            let picker = accessory()
+            let field = SkeletonField(leading: SkeletonReal(picker)).makeView() as! SkeletonFieldChrome
+            field.translatesAutoresizingMaskIntoConstraints = false
+            window.addSubview(field)
+            NSLayoutConstraint.activate([
+                field.topAnchor.constraint(equalTo: window.topAnchor, constant: 20),
+                field.leadingAnchor.constraint(equalTo: window.leadingAnchor, constant: 20),
+                field.widthAnchor.constraint(equalToConstant: 320),
+            ])
+            window.layoutIfNeeded()
+
+            #expect(field.valueLine.activeSweep != nil)
+            #expect(skeletonViews(in: picker).isEmpty)
         }
     }
 
@@ -108,7 +198,6 @@ struct SkeletonFieldTests {
     @Test func overridesBeatTheThemeDefaults() {
         withTheme {
             let field = SkeletonField(
-                placeholder: "1",
                 valueWidthFraction: 0.3,
                 height: 40,
                 radius: 8,
@@ -118,7 +207,7 @@ struct SkeletonFieldTests {
 
             #expect(field.resolvedHeight == 40)
             #expect(field.layer.cornerRadius == 8)
-            #expect(frame(of: field.label, in: field).minX == 6)
+            #expect(frame(of: field.valueLine, in: field).minX == 6)
             #expect(abs((field.valueWidthConstraint?.multiplier ?? 0) - 0.3) < 0.001)
         }
     }

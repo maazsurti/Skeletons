@@ -3,12 +3,14 @@ import UIKit
 // MARK: - Elements
 
 /// A text field at the geometry of the loaded one, waiting for the value the response fills: the
-/// real surface, 1 pt border, corner radius, height and inner padding, its real placeholder and
-/// leading icon, and a shimmering line only where the typed value goes.
+/// real surface, 1 pt border, corner radius, height and inner padding, any accessory the field
+/// already leads with, and a shimmering line only where the typed value goes. The field's own
+/// placeholder copy is never drawn: the value line stands in for the text.
 @MainActor
 public struct SkeletonField: SkeletonElement {
     private let placeholder: String?
     private let icon: UIImage?
+    private let leading: SkeletonElement?
     private let showsChevron: Bool
     private let valueWidthFraction: CGFloat?
     private let height: CGFloat?
@@ -16,16 +18,25 @@ public struct SkeletonField: SkeletonElement {
     private let padding: CGFloat?
 
     /// - Parameters:
-    ///   - placeholder: the field's real placeholder, drawn as text over the value area.
-    ///   - icon: the field's real leading icon; its presence sets the text's leading edge.
+    ///   - placeholder: the field's own placeholder copy. Never drawn; when `valueWidthFraction`
+    ///     is nil it sets the value line's width to the width that copy takes.
+    ///   - icon: the field's real leading icon, drawn in the theme's field text colour; used only
+    ///     when `leading` is nil.
+    ///   - leading: an accessory the field already has at its leading edge, as `SkeletonReal(view)`
+    ///     — a country picker. It keeps its own width and the field's full height, and the value
+    ///     area takes the rest. Pass a skeleton element instead when the accessory's own content
+    ///     is fetched.
     ///   - showsChevron: draws the field's own chevron before the trailing edge.
-    ///   - valueWidthFraction: the share of the value area the shimmering line takes; 0.55 when nil.
+    ///   - valueWidthFraction: the share of the value area the shimmering line takes; the
+    ///     placeholder's width when it is given, 0.55 otherwise.
     ///   - height: the field's height; the theme's `fieldHeight` when nil.
     ///   - radius: the field's corner radius; the theme's `fieldRadius` when nil.
-    ///   - padding: the inset from the leading and trailing edges; the theme's `fieldPadding` when nil.
+    ///   - padding: the inset from the leading and trailing edges, and the gap after a leading
+    ///     accessory; the theme's `fieldPadding` when nil.
     public init(
         placeholder: String? = nil,
         icon: UIImage? = nil,
+        leading: SkeletonElement? = nil,
         showsChevron: Bool = false,
         valueWidthFraction: CGFloat? = nil,
         height: CGFloat? = nil,
@@ -34,6 +45,7 @@ public struct SkeletonField: SkeletonElement {
     ) {
         self.placeholder = placeholder
         self.icon = icon
+        self.leading = leading
         self.showsChevron = showsChevron
         self.valueWidthFraction = valueWidthFraction
         self.height = height
@@ -43,8 +55,10 @@ public struct SkeletonField: SkeletonElement {
 
     public func makeView() -> UIView {
         SkeletonFieldChrome(
-            text: placeholder,
+            label: nil,
+            valueWidthHint: placeholder,
             icon: icon,
+            leading: leading?.makeView(),
             showsChevron: showsChevron,
             valuePlacement: .behind,
             valueWidthFraction: valueWidthFraction,
@@ -56,11 +70,13 @@ public struct SkeletonField: SkeletonElement {
 }
 
 /// A field whose value is chosen elsewhere — a governorate, an area, a date: the same chrome, its
-/// real label and chevron in place, and only the value area shimmering.
+/// real label and chevron in place, any leading accessory kept real, and only the value area
+/// shimmering.
 @MainActor
 public struct SkeletonPickerRow: SkeletonElement {
     private let label: String?
     private let icon: UIImage?
+    private let leading: SkeletonElement?
     private let showsChevron: Bool
     private let valueWidthFraction: CGFloat?
     private let height: CGFloat?
@@ -70,14 +86,19 @@ public struct SkeletonPickerRow: SkeletonElement {
     /// - Parameters:
     ///   - label: the label the row shows before its value, drawn as real text.
     ///   - icon: the row's real leading icon; its presence sets the label's leading edge.
+    ///   - leading: an accessory the row already has at its leading edge, as `SkeletonReal(view)`.
+    ///     It keeps its own width and the row's full height, and the label and the value take the
+    ///     rest. Pass a skeleton element instead when the accessory's own content is fetched.
     ///   - showsChevron: draws the row's chevron; true by default, as a picker has one.
     ///   - valueWidthFraction: the share of the value area the shimmering line takes; 0.4 when nil.
     ///   - height: the row's height; the theme's `fieldHeight` when nil.
     ///   - radius: the row's corner radius; the theme's `fieldRadius` when nil.
-    ///   - padding: the inset from the leading and trailing edges; the theme's `fieldPadding` when nil.
+    ///   - padding: the inset from the leading and trailing edges, and the gap after a leading
+    ///     accessory; the theme's `fieldPadding` when nil.
     public init(
         label: String? = nil,
         icon: UIImage? = nil,
+        leading: SkeletonElement? = nil,
         showsChevron: Bool = true,
         valueWidthFraction: CGFloat? = nil,
         height: CGFloat? = nil,
@@ -86,6 +107,7 @@ public struct SkeletonPickerRow: SkeletonElement {
     ) {
         self.label = label
         self.icon = icon
+        self.leading = leading
         self.showsChevron = showsChevron
         self.valueWidthFraction = valueWidthFraction
         self.height = height
@@ -95,8 +117,10 @@ public struct SkeletonPickerRow: SkeletonElement {
 
     public func makeView() -> UIView {
         SkeletonFieldChrome(
-            text: label,
+            label: label,
+            valueWidthHint: nil,
             icon: icon,
+            leading: leading?.makeView(),
             showsChevron: showsChevron,
             valuePlacement: .after,
             valueWidthFraction: valueWidthFraction,
@@ -111,24 +135,28 @@ public struct SkeletonPickerRow: SkeletonElement {
 
 /// Where the value sits relative to the real text.
 enum SkeletonFieldValuePlacement {
-    /// A text field: the value covers the same area as the placeholder, which reads over it.
+    /// A text field: the value occupies the whole area after the leading edge.
     case behind
     /// A picker: the value starts after the label.
     case after
 }
 
-/// The field's chrome and its two parts: the real text, and the shimmering value area inside it.
+/// The field's chrome and its parts: the real accessory, the real label of a picker row, and the
+/// shimmering value area inside it.
 @MainActor
 final class SkeletonFieldChrome: UIView {
 
     /// The value area's blinking line, sized from the theme.
     private(set) var valueLine: SkeletonView!
 
-    /// The real placeholder or label, or nil when the row shows no text of its own.
+    /// The real label of a picker row, or nil when the field shows no text of its own.
     private(set) var label: UILabel?
 
     private(set) var iconView: UIImageView?
     private(set) var chevronView: UIView?
+
+    /// The real view the field leads with, when it has one.
+    private(set) var leadingView: UIView?
 
     /// The fixed height this field was given.
     let resolvedHeight: CGFloat
@@ -143,8 +171,10 @@ final class SkeletonFieldChrome: UIView {
     private(set) var valueWidthConstraint: NSLayoutConstraint?
 
     init(
-        text: String?,
+        label: String?,
+        valueWidthHint: String?,
         icon: UIImage?,
+        leading: UIView?,
         showsChevron: Bool,
         valuePlacement: SkeletonFieldValuePlacement,
         valueWidthFraction: CGFloat?,
@@ -166,12 +196,24 @@ final class SkeletonFieldChrome: UIView {
         layer.cornerCurve = .continuous
         layer.borderWidth = 1
         layer.borderColor = theme.fieldBorder.cgColor
+        // The loaded field clips its own content, so an accessory's fill stops at the corner.
+        clipsToBounds = true
         heightAnchor.constraint(equalToConstant: resolvedHeight).isActive = true
 
-        // The row runs from the leading padding to the chevron, one item after another.
+        // The row runs from the leading accessory to the chevron, one item after another.
         var textLeading: NSLayoutXAxisAnchor = leadingAnchor
         var textLeadingInset = resolvedPadding
-        if let icon {
+        if let leading {
+            add(leading, to: self)
+            NSLayoutConstraint.activate([
+                leading.leadingAnchor.constraint(equalTo: leadingAnchor),
+                leading.topAnchor.constraint(equalTo: topAnchor),
+                leading.bottomAnchor.constraint(equalTo: bottomAnchor),
+            ])
+            leadingView = leading
+            textLeading = leading.trailingAnchor
+            textLeadingInset = resolvedPadding
+        } else if let icon {
             let image = UIImageView(image: icon.withRenderingMode(.alwaysTemplate))
             image.tintColor = theme.fieldText
             image.contentMode = .scaleAspectFit
@@ -217,62 +259,52 @@ final class SkeletonFieldChrome: UIView {
         let line = SkeletonView.line(height: lineHeight, radius: lineHeight / 2)
         valueLine = line
 
-        switch valuePlacement {
-        case .behind:
-            add(line, to: textArea)
+        var valueArea = textArea
+        if valuePlacement == .after, let label {
+            let labelView = makeLabel(label, theme: theme)
+            add(labelView, to: textArea)
             NSLayoutConstraint.activate([
-                line.leadingAnchor.constraint(equalTo: textArea.leadingAnchor),
-                line.centerYAnchor.constraint(equalTo: textArea.centerYAnchor),
+                labelView.leadingAnchor.constraint(equalTo: textArea.leadingAnchor),
+                labelView.centerYAnchor.constraint(equalTo: textArea.centerYAnchor),
             ])
-            valueWidthConstraint = line.widthAnchor.constraint(
-                equalTo: textArea.widthAnchor,
-                multiplier: resolvedValueWidthFraction
+            self.label = labelView
+
+            let area = UIView()
+            add(area, to: textArea)
+            NSLayoutConstraint.activate([
+                area.leadingAnchor.constraint(equalTo: labelView.trailingAnchor, constant: Self.gap),
+                area.trailingAnchor.constraint(equalTo: textArea.trailingAnchor),
+                area.topAnchor.constraint(equalTo: textArea.topAnchor),
+                area.bottomAnchor.constraint(equalTo: textArea.bottomAnchor),
+            ])
+            valueArea = area
+        }
+
+        add(line, to: valueArea)
+        NSLayoutConstraint.activate([
+            line.leadingAnchor.constraint(equalTo: valueArea.leadingAnchor),
+            line.centerYAnchor.constraint(equalTo: valueArea.centerYAnchor),
+            line.trailingAnchor.constraint(lessThanOrEqualTo: valueArea.trailingAnchor),
+        ])
+
+        if let valueWidthFraction {
+            let width = line.widthAnchor.constraint(
+                equalTo: valueArea.widthAnchor,
+                multiplier: valueWidthFraction
             )
-            valueWidthConstraint?.isActive = true
-
-            if let text {
-                let label = makeLabel(text, theme: theme)
-                add(label, to: textArea)
-                NSLayoutConstraint.activate([
-                    label.leadingAnchor.constraint(equalTo: textArea.leadingAnchor),
-                    label.centerYAnchor.constraint(equalTo: textArea.centerYAnchor),
-                    label.trailingAnchor.constraint(lessThanOrEqualTo: textArea.trailingAnchor),
-                ])
-                self.label = label
-            }
-
-        case .after:
-            var valueArea = textArea
-            if let text {
-                let label = makeLabel(text, theme: theme)
-                add(label, to: textArea)
-                NSLayoutConstraint.activate([
-                    label.leadingAnchor.constraint(equalTo: textArea.leadingAnchor),
-                    label.centerYAnchor.constraint(equalTo: textArea.centerYAnchor),
-                ])
-                self.label = label
-
-                let area = UIView()
-                add(area, to: textArea)
-                NSLayoutConstraint.activate([
-                    area.leadingAnchor.constraint(equalTo: label.trailingAnchor, constant: Self.gap),
-                    area.trailingAnchor.constraint(equalTo: textArea.trailingAnchor),
-                    area.topAnchor.constraint(equalTo: textArea.topAnchor),
-                    area.bottomAnchor.constraint(equalTo: textArea.bottomAnchor),
-                ])
-                valueArea = area
-            }
-
-            add(line, to: valueArea)
-            NSLayoutConstraint.activate([
-                line.leadingAnchor.constraint(equalTo: valueArea.leadingAnchor),
-                line.centerYAnchor.constraint(equalTo: valueArea.centerYAnchor),
-            ])
-            valueWidthConstraint = line.widthAnchor.constraint(
+            width.isActive = true
+            valueWidthConstraint = width
+        } else if let valueWidthHint, let hintWidth = textWidth(of: valueWidthHint, in: theme.fieldTextFont) {
+            let width = line.widthAnchor.constraint(equalToConstant: hintWidth)
+            width.priority = UILayoutPriority(999)
+            width.isActive = true
+        } else {
+            let width = line.widthAnchor.constraint(
                 equalTo: valueArea.widthAnchor,
                 multiplier: resolvedValueWidthFraction
             )
-            valueWidthConstraint?.isActive = true
+            width.isActive = true
+            valueWidthConstraint = width
         }
     }
 
@@ -312,7 +344,7 @@ final class SkeletonFieldChrome: UIView {
         host.addSubview(view)
     }
 
-    /// The real placeholder or label: text, never a block.
+    /// The real label: text, never a block.
     private func makeLabel(_ text: String, theme: SkeletonTheme) -> UILabel {
         let label = UILabel()
         label.text = text
@@ -322,6 +354,13 @@ final class SkeletonFieldChrome: UIView {
         label.setContentHuggingPriority(.required, for: .horizontal)
         label.setContentCompressionResistancePriority(.required, for: .horizontal)
         return label
+    }
+
+    /// The width the placeholder copy takes in the field's font, so the value line stands where
+    /// that copy would.
+    private func textWidth(of text: String, in font: UIFont) -> CGFloat? {
+        let width = (text as NSString).size(withAttributes: [.font: font]).width
+        return width > 0 ? ceil(width) : nil
     }
 
     private static let iconSide: CGFloat = 18

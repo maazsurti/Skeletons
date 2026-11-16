@@ -41,10 +41,10 @@ public struct SkeletonTheme {
     /// The border a loading field or picker row draws.
     public var fieldBorder: UIColor
 
-    /// The colour of the placeholder or label that stays readable inside a loading field.
+    /// The colour of the label and icon that stay readable inside a loading field.
     public var fieldText: UIColor
 
-    /// The font that placeholder or label is drawn in.
+    /// The font that label is drawn in.
     public var fieldTextFont: UIFont
 
     /// The height a loading field uses when it does not name its own.
