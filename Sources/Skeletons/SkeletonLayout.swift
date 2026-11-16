@@ -505,6 +505,7 @@ public struct SkeletonCard: SkeletonElement {
             padding: padding,
             alignment: .fill
         )
+        body.translatesAutoresizingMaskIntoConstraints = false
         card.addSubview(body)
         NSLayoutConstraint.activate([
             body.topAnchor.constraint(equalTo: card.topAnchor),
@@ -744,6 +745,10 @@ enum SkeletonStack {
         stack.spacing = spacing ?? SkeletonTheme.current.spacing
         stack.alignment = alignment.ui(axis: axis)
         stack.distribution = distribution == .fillEqually ? .fillEqually : .fill
+        // A stack inside a placeholder card has no intrinsic size of its own, so keep a parent
+        // column from compressing it to nothing.
+        stack.setContentHuggingPriority(.required, for: .vertical)
+        stack.setContentCompressionResistancePriority(.required, for: .vertical)
         for element in content.elements {
             stack.addArrangedSubview(element.makeView())
         }
