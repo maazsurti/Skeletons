@@ -12,7 +12,20 @@ public final class SkeletonView: UIView {
     private var widthFraction: CGFloat?
     private var fractionConstraint: NSLayoutConstraint?
     private var sweepGeometry: String?
+    private var sweepOrdinal: Int?
     private var isPulsing = false
+
+    /// The first block of the group this block sweeps with. A fused run of lines sets every
+    /// member to the same block, so the whole run carries one phase and reads as one surface.
+    weak var sweepAnchor: SkeletonView?
+
+    /// The block whose ordinal this one shares.
+    var sweepRoot: SkeletonView { sweepAnchor ?? self }
+
+    /// Whether this block is on screen and should take a place in the wave.
+    var isSweeping: Bool {
+        window != nil && !isHidden && isShimmering && bounds.width > 0 && bounds.height > 0
+    }
 
     private static let sweepKey = "shimmer"
 
@@ -25,12 +38,13 @@ public final class SkeletonView: UIView {
         height: CGFloat = 14,
         width: CGFloat? = nil,
         widthFraction: CGFloat? = nil,
-        radius: CGFloat? = nil
+        radius: CGFloat? = nil,
+        corners: CACornerMask = .skeletonAllCorners
     ) -> SkeletonView {
-        let view = SkeletonView(cornerRadius: radius)
+        let view = SkeletonView(cornerRadius: radius, corners: corners)
         view.heightAnchor.constraint(equalToConstant: height).isActive = true
         if let width {
-            view.widthAnchor.constraint(equalToConstant: width).isActive = true
+            view.setPreferredWidth(width)
         } else if let widthFraction {
             view.widthFraction = widthFraction
         }
@@ -40,10 +54,8 @@ public final class SkeletonView: UIView {
     /// A round block, for avatars, icons and thumbnails.
     public static func circle(diameter: CGFloat) -> SkeletonView {
         let view = SkeletonView(cornerRadius: diameter / 2)
-        NSLayoutConstraint.activate([
-            view.widthAnchor.constraint(equalToConstant: diameter),
-            view.heightAnchor.constraint(equalToConstant: diameter),
-        ])
+        view.setPreferredWidth(diameter)
+        view.heightAnchor.constraint(equalToConstant: diameter).isActive = true
         return view
     }
 
@@ -59,7 +71,11 @@ public final class SkeletonView: UIView {
     // MARK: - Lifecycle
 
     /// A block filled with the theme's base colour. `cornerRadius` falls back to the theme's.
-    public init(cornerRadius: CGFloat? = nil) {
+    /// `corners` names which corners round, so a run of flush blocks rounds only where it ends.
+    public init(
+        cornerRadius: CGFloat? = nil,
+        corners: CACornerMask = .skeletonAllCorners
+    ) {
         super.init(frame: .zero)
 
         let theme = SkeletonTheme.current
@@ -71,6 +87,7 @@ public final class SkeletonView: UIView {
         fill.backgroundColor = theme.base
         fill.layer.cornerRadius = cornerRadius ?? theme.cornerRadius
         fill.layer.cornerCurve = .continuous
+        fill.layer.maskedCorners = corners
         fill.clipsToBounds = true
         fill.translatesAutoresizingMaskIntoConstraints = false
         addSubview(fill)
@@ -159,11 +176,16 @@ public final class SkeletonView: UIView {
         guard let window, !isHidden, isShimmering, bounds.width > 0, bounds.height > 0 else {
             stopSweep()
             stopPulse()
+            sweepOrdinal = nil
+            SweepOrder.unregister(self)
             return
         }
 
+        SweepOrder.register(self)
+
         if UIAccessibility.isReduceMotionEnabled {
             stopSweep()
+            sweepOrdinal = nil
             startPulse()
             return
         }
@@ -172,6 +194,8 @@ public final class SkeletonView: UIView {
 
         let theme = SkeletonTheme.current
         let duration = max(theme.shimmerDuration, 0.2)
+        let ordinal = SweepOrder.ordinal(of: self)
+        sweepOrdinal = ordinal
         let geometry = [
             String(Double(window.bounds.width)),
             String(Double(bounds.width)),
@@ -200,8 +224,21 @@ public final class SkeletonView: UIView {
         sweep.duration = duration
         sweep.repeatCount = .infinity
         sweep.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-        sweep.beginTime = ShimmerTimeline.startTime(duration: duration)
+        sweep.beginTime = ShimmerTimeline.startTime(
+            duration: duration,
+            ordinal: ordinal,
+            stagger: theme.shimmerStagger
+        )
         highlight.add(sweep, forKey: Self.sweepKey)
+    }
+
+    /// Takes this block's place in the wave again after another placeholder joined or left, so a
+    /// block that is still on screen keeps its own phase.
+    func sweepGroupDidMove() {
+        guard isSweeping else { return }
+        let ordinal = SweepOrder.ordinal(of: self)
+        guard ordinal != sweepOrdinal else { return }
+        updateAnimation(force: true)
     }
 
     private func stopSweep() {
@@ -256,4 +293,28 @@ public final class SkeletonView: UIView {
         highlight.startPoint = CGPoint(x: 0, y: 0.5)
         highlight.endPoint = CGPoint(x: 1, y: 0.5)
     }
+}
+
+extension CACornerMask {
+    public static let skeletonAllCorners: CACornerMask = [
+        .layerMinXMinYCorner, .layerMaxXMinYCorner,
+        .layerMinXMaxYCorner, .layerMaxXMaxYCorner,
+    ]
+    static let skeletonTopCorners: CACornerMask = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
+    static let skeletonBottomCorners: CACornerMask = [.layerMinXMaxYCorner, .layerMaxXMaxYCorner]
+}
+
+extension UIView {
+    /// The width a placeholder asks for. Held while it fits, yielded when the container is
+    /// narrower than the block asserts.
+    func setPreferredWidth(_ width: CGFloat) {
+        let preferred = widthAnchor.constraint(equalToConstant: width)
+        preferred.priority = .skeletonPreferredWidth
+        preferred.isActive = true
+    }
+}
+
+extension UILayoutPriority {
+    /// A placeholder's stated width: held while it fits, yielded when the container is narrower.
+    static let skeletonPreferredWidth = UILayoutPriority(999)
 }

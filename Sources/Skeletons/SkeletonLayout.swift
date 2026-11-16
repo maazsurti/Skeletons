@@ -9,6 +9,27 @@ import UIKit
 public protocol SkeletonElement {
     /// The view this element draws.
     func makeView() -> UIView
+
+    /// The line this element draws, when it is a plain line. Flush lines in a column fuse into
+    /// one block, which is why the layout reads this before making the views.
+    var lineMetrics: SkeletonLineMetrics? { get }
+}
+
+public extension SkeletonElement {
+    var lineMetrics: SkeletonLineMetrics? { nil }
+}
+
+/// One line's geometry, so adjacent lines can fuse without losing what they each asked for.
+public struct SkeletonLineMetrics {
+    public let height: CGFloat
+    public let width: CGFloat?
+    public let widthFraction: CGFloat?
+    public let radius: CGFloat
+
+    /// Whether another line asks for the same width, so the two can draw as one rectangle.
+    func matchesWidth(of other: SkeletonLineMetrics) -> Bool {
+        width == other.width && widthFraction == other.widthFraction
+    }
 }
 
 /// A group of elements, as returned by a `@SkeletonContentBuilder` closure.
@@ -197,7 +218,8 @@ public struct SkeletonColumn: SkeletonElement {
     }
 }
 
-/// Elements side by side.
+/// Elements side by side. The tallest element sets the row's height and the others keep their
+/// own, so a short copy column beside a tall photo is a row that lays out.
 @MainActor
 public struct SkeletonRow: SkeletonElement {
     private let content: SkeletonContent
@@ -209,7 +231,7 @@ public struct SkeletonRow: SkeletonElement {
     public init(
         spacing: CGFloat? = nil,
         padding: CGFloat = 0,
-        alignment: SkeletonAxisAlignment = .fill,
+        alignment: SkeletonAxisAlignment = .center,
         distribution: SkeletonDistribution = .fill,
         @SkeletonContentBuilder content: () -> SkeletonContent
     ) {
@@ -225,7 +247,7 @@ public struct SkeletonRow: SkeletonElement {
     public init(
         spacing: CGFloat? = nil,
         padding: UIEdgeInsets,
-        alignment: SkeletonAxisAlignment = .fill,
+        alignment: SkeletonAxisAlignment = .center,
         distribution: SkeletonDistribution = .fill,
         @SkeletonContentBuilder content: () -> SkeletonContent
     ) {
@@ -313,6 +335,15 @@ public struct SkeletonLine: SkeletonElement {
             radius: radius ?? style.lineRadius
         )
     }
+
+    public var lineMetrics: SkeletonLineMetrics? {
+        SkeletonLineMetrics(
+            height: style.lineHeight,
+            width: width,
+            widthFraction: widthFraction,
+            radius: radius ?? style.lineRadius
+        )
+    }
 }
 
 /// A plain block: a photo, a chart, a button's shape, anything no other element names.
@@ -338,7 +369,7 @@ public struct SkeletonBlock: SkeletonElement {
             block.heightAnchor.constraint(equalToConstant: height).isActive = true
         }
         if let width {
-            block.widthAnchor.constraint(equalToConstant: width).isActive = true
+            block.setPreferredWidth(width)
         }
         return block
     }
@@ -365,7 +396,7 @@ public struct SkeletonPhoto: SkeletonElement {
 
     public func makeView() -> UIView {
         let photo = SkeletonView(cornerRadius: radius ?? SkeletonTheme.current.cornerRadius)
-        photo.widthAnchor.constraint(equalToConstant: width).isActive = true
+        photo.setPreferredWidth(width)
         if let height {
             photo.heightAnchor.constraint(equalToConstant: height).isActive = true
         } else if let aspect {
@@ -700,7 +731,7 @@ private struct SkeletonSized: SkeletonElement {
     func makeView() -> UIView {
         let view = base.makeView()
         if let width {
-            view.widthAnchor.constraint(equalToConstant: width).isActive = true
+            view.setPreferredWidth(width)
         }
         if let height {
             view.heightAnchor.constraint(equalToConstant: height).isActive = true
@@ -753,8 +784,8 @@ enum SkeletonStack {
         // column from compressing it to nothing.
         stack.setContentHuggingPriority(.required, for: .vertical)
         stack.setContentCompressionResistancePriority(.required, for: .vertical)
-        for element in content.elements {
-            stack.addArrangedSubview(element.makeView())
+        for view in views(for: content.elements, axis: axis, spacing: stack.spacing) {
+            stack.addArrangedSubview(view)
         }
         if padding != .zero {
             stack.isLayoutMarginsRelativeArrangement = true
@@ -762,18 +793,96 @@ enum SkeletonStack {
         }
         return stack
     }
+
+    /// The views a stack holds, with a flush run of lines in a vertical stack drawn as one block.
+    private static func views(
+        for elements: [SkeletonElement],
+        axis: NSLayoutConstraint.Axis,
+        spacing: CGFloat
+    ) -> [UIView] {
+        guard axis == .vertical, spacing == 0 else {
+            return elements.map { $0.makeView() }
+        }
+        var views: [UIView] = []
+        var run: [SkeletonLineMetrics] = []
+        for element in elements {
+            guard let metrics = element.lineMetrics else {
+                views.append(contentsOf: fused(run))
+                run.removeAll()
+                views.append(element.makeView())
+                continue
+            }
+            run.append(metrics)
+        }
+        views.append(contentsOf: fused(run))
+        return views
+    }
+
+    private static func fused(_ run: [SkeletonLineMetrics]) -> [UIView] {
+        guard !run.isEmpty else { return [] }
+        return [SkeletonLineRun.makeView(run)]
+    }
+}
+
+// MARK: - Fused runs
+
+/// A run of lines with nothing between them, drawn as one surface: one block when they share a
+/// width, and a stepped block of flush segments when they do not.
+@MainActor
+enum SkeletonLineRun {
+
+    static func makeView(_ run: [SkeletonLineMetrics]) -> UIView {
+        let first = run[0]
+        let last = run[run.count - 1]
+        let radius = max(first.radius, last.radius)
+
+        guard run.allSatisfy({ $0.matchesWidth(of: first) }) else {
+            let stack = UIStackView()
+            stack.axis = .vertical
+            stack.spacing = 0
+            stack.alignment = .leading
+            var blocks: [SkeletonView] = []
+            for (index, line) in run.enumerated() {
+                let corners: CACornerMask = index == 0
+                    ? .skeletonTopCorners
+                    : (index == run.count - 1 ? .skeletonBottomCorners : [])
+                let block = SkeletonView.line(
+                    height: line.height,
+                    width: line.width,
+                    widthFraction: line.widthFraction,
+                    radius: line.radius,
+                    corners: corners
+                )
+                blocks.append(block)
+                stack.addArrangedSubview(block)
+            }
+            blocks.dropFirst().forEach { $0.sweepAnchor = blocks[0] }
+            return stack
+        }
+
+        return SkeletonView.line(
+            height: run.reduce(0) { $0 + $1.height },
+            width: first.width,
+            widthFraction: first.widthFraction,
+            radius: radius,
+            corners: .skeletonAllCorners
+        )
+    }
 }
 
 private extension SkeletonAxisAlignment {
     func ui(axis: NSLayoutConstraint.Axis) -> UIStackView.Alignment {
         switch (self, axis) {
-        case (.fill, _): return .fill
+        case (.fill, .vertical): return .fill
+        // A row's height is its tallest element; nothing in a skeleton row asks a block to
+        // stretch vertically, and stretching a short column to a photo's height cannot lay out.
+        case (.fill, .horizontal): return .center
         case (.leading, .vertical): return .leading
         case (.leading, .horizontal): return .top
         case (.center, _): return .center
         case (.trailing, .vertical): return .trailing
         case (.trailing, .horizontal): return .bottom
-        default: return .fill
+        default: return .center
         }
     }
 }

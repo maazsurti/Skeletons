@@ -16,6 +16,10 @@ public struct SkeletonTheme {
     /// How long one sweep takes, in seconds.
     public var shimmerDuration: TimeInterval
 
+    /// The delay, in seconds, between one block's sweep and the next block's. The blocks on
+    /// screen cross in a wave rather than together. Zero puts them all back in phase.
+    public var shimmerStagger: TimeInterval
+
     /// The text VoiceOver reads for a skeleton container.
     public var loadingText: String
 
@@ -61,6 +65,7 @@ public struct SkeletonTheme {
         highlight: UIColor = SkeletonTheme.defaultHighlight,
         cornerRadius: CGFloat = 8,
         shimmerDuration: TimeInterval = 1.2,
+        shimmerStagger: TimeInterval = 0.15,
         loadingText: String = "Loading",
         isRightToLeft: @escaping () -> Bool = {
             UIApplication.shared.userInterfaceLayoutDirection == .rightToLeft
@@ -81,6 +86,7 @@ public struct SkeletonTheme {
         self.highlight = highlight
         self.cornerRadius = cornerRadius
         self.shimmerDuration = shimmerDuration
+        self.shimmerStagger = shimmerStagger
         self.loadingText = loadingText
         self.isRightToLeft = isRightToLeft
         self.spacing = spacing
