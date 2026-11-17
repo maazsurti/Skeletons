@@ -33,8 +33,8 @@ SkeletonTheme.current = SkeletonTheme(
     base: .skeletonBase,
     highlight: .skeletonHighlight,
     cornerRadius: 8,
-    shimmerDuration: 1.2,
-    shimmerStagger: 0.15,
+    shimmerDuration: 1.7,
+    shimmerStagger: 0.10,
     loadingText: String(localized: "Loading"),
     isRightToLeft: { Locale.current.language.characterDirection == .rightToLeft }
 )
@@ -174,6 +174,10 @@ which one is on screen.
   phase wraps inside one sweep, so a block added late starts mid-wave rather than waiting. A fused
   run of lines counts as one place and crosses as one surface. `shimmerStagger` is 0 puts every
   block back in phase.
+- **A seamless loop.** The band crosses at a constant speed (`linear`, no easing into the edges), and
+  the travel starts and ends with the band clear of both the window and the block's own edges, so the
+  wrap back to the leading edge happens with nothing on screen. `shimmerDuration` is how long one
+  pass takes.
 - **Right to left.** When `isRightToLeft` returns true the sweep enters from the trailing edge and the
   wave runs from the trailing edge across.
 - **Reduce Motion.** A gentle opacity pulse (0.55 ↔ 1) replaces the sweep, and the switcher swaps

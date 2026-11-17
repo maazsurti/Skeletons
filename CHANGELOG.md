@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.3
+
+- The sweep loops without a seam: the band travels clear of the block on both sides, so the wrap
+  happens off screen, and it crosses at a constant speed instead of easing into the edges.
+- `shimmerDuration` defaults to 1.7 s and `shimmerStagger` to 0.10 s.
+
 ## 1.2.2
 
 - A stated width is a preference: a placeholder keeps the width it was given while it fits and
