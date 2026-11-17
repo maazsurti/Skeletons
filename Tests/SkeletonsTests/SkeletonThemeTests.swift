@@ -10,7 +10,7 @@ struct SkeletonThemeTests {
     @Test func defaultThemeIsUsableAsIs() {
         let theme = SkeletonTheme()
         #expect(theme.cornerRadius == 8)
-        #expect(theme.shimmerDuration == 1.2)
+        #expect(theme.shimmerDuration == 1.7)
         #expect(theme.loadingText == "Loading")
     }
 
@@ -33,6 +33,6 @@ struct SkeletonThemeTests {
         SkeletonTheme.current = SkeletonTheme(loadingText: "جارٍ التحميل", isRightToLeft: { true })
         #expect(SkeletonTheme.current.loadingText == "جارٍ التحميل")
         #expect(SkeletonTheme.current.isRightToLeft() == true)
-        #expect(SkeletonTheme.current.shimmerDuration == 1.2)
+        #expect(SkeletonTheme.current.shimmerDuration == 1.7)
     }
 }

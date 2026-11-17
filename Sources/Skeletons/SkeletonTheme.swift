@@ -64,8 +64,8 @@ public struct SkeletonTheme {
         base: UIColor = SkeletonTheme.defaultBase,
         highlight: UIColor = SkeletonTheme.defaultHighlight,
         cornerRadius: CGFloat = 8,
-        shimmerDuration: TimeInterval = 1.2,
-        shimmerStagger: TimeInterval = 0.15,
+        shimmerDuration: TimeInterval = 1.7,
+        shimmerStagger: TimeInterval = 0.10,
         loadingText: String = "Loading",
         isRightToLeft: @escaping () -> Bool = {
             UIApplication.shared.userInterfaceLayoutDirection == .rightToLeft

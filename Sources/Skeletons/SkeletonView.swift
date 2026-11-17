@@ -157,16 +157,21 @@ public final class SkeletonView: UIView {
 
     // MARK: - Animation
 
-    /// Where the highlight's leading edge sits in the block's own coordinates for a sweep across a
-    /// window `windowWidth` wide, with the block starting at `originX` in that window.
+    /// Where the highlight's leading edge sits in the block's own coordinates for a sweep across the
+    /// window, with the block starting at `originX` in that window. The travel starts with the band
+    /// clear of the window and of the block's own leading edge, and ends with it clear of both the
+    /// window and the block's trailing edge, so the wrap never happens while the band is on screen.
     static func sweepTravel(
         windowWidth: CGFloat,
         bandWidth: CGFloat,
         originX: CGFloat,
+        blockWidth: CGFloat,
         isRightToLeft: Bool
     ) -> (from: CGFloat, to: CGFloat) {
-        let fromLeading = -bandWidth - originX
-        let fromTrailing = windowWidth - originX
+        let leadingEdge = min(0, originX)
+        let trailingEdge = max(windowWidth, originX + blockWidth)
+        let fromLeading = leadingEdge - bandWidth - originX
+        let fromTrailing = trailingEdge - originX
         return isRightToLeft ? (fromTrailing, fromLeading) : (fromLeading, fromTrailing)
     }
 
@@ -213,6 +218,7 @@ public final class SkeletonView: UIView {
             windowWidth: window.bounds.width,
             bandWidth: band,
             originX: convert(bounds, to: window).minX,
+            blockWidth: bounds.width,
             isRightToLeft: theme.isRightToLeft()
         )
 
@@ -223,7 +229,7 @@ public final class SkeletonView: UIView {
         sweep.toValue = travel.to
         sweep.duration = duration
         sweep.repeatCount = .infinity
-        sweep.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        sweep.timingFunction = CAMediaTimingFunction(name: .linear)
         sweep.beginTime = ShimmerTimeline.startTime(
             duration: duration,
             ordinal: ordinal,

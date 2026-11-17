@@ -11,6 +11,7 @@ struct SkeletonShimmerTests {
             windowWidth: 400,
             bandWidth: 140,
             originX: 20,
+            blockWidth: 300,
             isRightToLeft: false
         )
         #expect(travel.from == -160)
@@ -23,12 +24,14 @@ struct SkeletonShimmerTests {
             windowWidth: 400,
             bandWidth: 140,
             originX: 20,
+            blockWidth: 300,
             isRightToLeft: false
         )
         let rightToLeft = SkeletonView.sweepTravel(
             windowWidth: 400,
             bandWidth: 140,
             originX: 20,
+            blockWidth: 300,
             isRightToLeft: true
         )
 
