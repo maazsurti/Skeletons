@@ -11,20 +11,24 @@ public final class SkeletonView: UIView {
 
     private var widthFraction: CGFloat?
     private var fractionConstraint: NSLayoutConstraint?
-    private var sweepGeometry: String?
-    private var sweepOrdinal: Int?
+    private var sweepSignature: String?
     private var isPulsing = false
 
-    /// The first block of the group this block sweeps with. A fused run of lines sets every
-    /// member to the same block, so the whole run carries one phase and reads as one surface.
-    weak var sweepAnchor: SkeletonView?
-
-    /// The block whose ordinal this one shares.
-    var sweepRoot: SkeletonView { sweepAnchor ?? self }
+    /// The place this block's component takes in its screen's wave, read once and kept while the
+    /// block stays on screen.
+    var sweepPlace: SweepOrder.Place?
 
     /// Whether this block is on screen and should take a place in the wave.
     var isSweeping: Bool {
         window != nil && !isHidden && isShimmering && bounds.width > 0 && bounds.height > 0
+    }
+
+    /// Pins the Reduce Motion setting, for the tests that check the pulse. Nil reads the system
+    /// setting.
+    nonisolated(unsafe) static var reduceMotionOverride: Bool?
+
+    private var isReduceMotionEnabled: Bool {
+        SkeletonView.reduceMotionOverride ?? UIAccessibility.isReduceMotionEnabled
     }
 
     private static let sweepKey = "shimmer"
@@ -157,40 +161,33 @@ public final class SkeletonView: UIView {
 
     // MARK: - Animation
 
-    /// Where the highlight's leading edge sits in the block's own coordinates for a sweep across the
-    /// window, with the block starting at `originX` in that window. The travel starts with the band
-    /// clear of the window and of the block's own leading edge, and ends with it clear of both the
-    /// window and the block's trailing edge, so the wrap never happens while the band is on screen.
+    /// Where the highlight's leading edge sits in the block's own coordinates for a pass across the
+    /// window, with the block starting at `originX` in that window. The travel is the window's,
+    /// carried into the block's coordinates, so every block crosses at one speed and the band sits
+    /// clear of the window at both ends of the pass.
     static func sweepTravel(
         windowWidth: CGFloat,
         bandWidth: CGFloat,
         originX: CGFloat,
-        blockWidth: CGFloat,
         isRightToLeft: Bool
     ) -> (from: CGFloat, to: CGFloat) {
-        let leadingEdge = min(0, originX)
-        let trailingEdge = max(windowWidth, originX + blockWidth)
-        let fromLeading = leadingEdge - bandWidth - originX
-        let fromTrailing = trailingEdge - originX
-        return isRightToLeft ? (fromTrailing, fromLeading) : (fromLeading, fromTrailing)
+        let leading = -bandWidth - originX
+        let trailing = windowWidth - originX
+        return isRightToLeft ? (trailing, leading) : (leading, trailing)
     }
 
-    /// Restarts whatever this block should currently be running: the shared sweep, the Reduce
+    /// Attaches whatever this block should currently be running: the shared sweep, the Reduce
     /// Motion pulse, or nothing while it is off-window or hidden.
     private func updateAnimation(force: Bool) {
         guard let window, !isHidden, isShimmering, bounds.width > 0, bounds.height > 0 else {
             stopSweep()
             stopPulse()
-            sweepOrdinal = nil
-            SweepOrder.unregister(self)
+            sweepPlace = nil
             return
         }
 
-        SweepOrder.register(self)
-
-        if UIAccessibility.isReduceMotionEnabled {
+        if isReduceMotionEnabled {
             stopSweep()
-            sweepOrdinal = nil
             startPulse()
             return
         }
@@ -198,63 +195,66 @@ public final class SkeletonView: UIView {
         stopPulse()
 
         let theme = SkeletonTheme.current
-        let duration = max(theme.shimmerDuration, 0.2)
-        let ordinal = SweepOrder.ordinal(of: self)
-        sweepOrdinal = ordinal
-        let geometry = [
+        let pass = max(theme.shimmerDuration, 0.2)
+        let place = SweepOrder.place(of: self)
+        let offset = ShimmerTimeline.offset(ordinal: place.ordinal, stagger: theme.shimmerStagger)
+        let period = ShimmerTimeline.period(
+            pass: pass,
+            components: place.count,
+            stagger: theme.shimmerStagger
+        )
+        let originX = convert(bounds, to: window).minX
+        let signature = [
             String(Double(window.bounds.width)),
-            String(Double(bounds.width)),
-            String(Double(bounds.height)),
-            String(Double(convert(bounds, to: window).minX)),
-            String(duration),
+            String(Double(bandWidth)),
+            String(Double(pass)),
+            String(Double(period)),
+            String(Double(offset)),
             String(theme.isRightToLeft()),
         ].joined(separator: "|")
 
-        guard force || geometry != sweepGeometry else { return }
-        sweepGeometry = geometry
+        guard force || signature != sweepSignature else { return }
+        sweepSignature = signature
 
-        let band = bandWidth
         let travel = SkeletonView.sweepTravel(
             windowWidth: window.bounds.width,
-            bandWidth: band,
-            originX: convert(bounds, to: window).minX,
-            blockWidth: bounds.width,
+            bandWidth: bandWidth,
+            originX: originX,
             isRightToLeft: theme.isRightToLeft()
         )
 
-        highlight.frame = CGRect(x: 0, y: 0, width: band, height: bounds.height)
-
-        let sweep = CABasicAnimation(keyPath: "transform.translation.x")
-        sweep.fromValue = travel.from
-        sweep.toValue = travel.to
-        sweep.duration = duration
-        sweep.repeatCount = .infinity
-        sweep.timingFunction = CAMediaTimingFunction(name: .linear)
-        sweep.beginTime = ShimmerTimeline.startTime(
-            duration: duration,
-            ordinal: ordinal,
-            stagger: theme.shimmerStagger
+        highlight.frame = CGRect(x: 0, y: 0, width: bandWidth, height: bounds.height)
+        highlight.add(
+            ShimmerTimeline.sweepAnimation(
+                from: travel.from,
+                to: travel.to,
+                pass: pass,
+                period: period,
+                offset: offset
+            ),
+            forKey: Self.sweepKey
         )
-        highlight.add(sweep, forKey: Self.sweepKey)
     }
 
-    /// Takes this block's place in the wave again after another placeholder joined or left, so a
-    /// block that is still on screen keeps its own phase.
-    func sweepGroupDidMove() {
-        guard isSweeping else { return }
-        let ordinal = SweepOrder.ordinal(of: self)
-        guard ordinal != sweepOrdinal else { return }
+    /// Attaches this block's sweep again after its place in the wave changed.
+    func rephase() {
         updateAnimation(force: true)
     }
 
     private func stopSweep() {
-        sweepGeometry = nil
+        sweepSignature = nil
         highlight.removeAnimation(forKey: Self.sweepKey)
     }
 
     /// The sweep attached right now, so a test can check it runs and stops.
     var activeSweep: CAAnimation? {
         highlight.animation(forKey: Self.sweepKey)
+    }
+
+    /// The pulse attached right now, so a test can check Reduce Motion still fades the fill.
+    var activePulse: CAAnimation? {
+        fill.layer.animation(forKey: "opacity")
+            ?? fill.layer.animationKeys()?.first.flatMap { fill.layer.animation(forKey: $0) }
     }
 
     private func startPulse() {

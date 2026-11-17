@@ -11,7 +11,6 @@ struct SkeletonShimmerTests {
             windowWidth: 400,
             bandWidth: 140,
             originX: 20,
-            blockWidth: 300,
             isRightToLeft: false
         )
         #expect(travel.from == -160)
@@ -24,14 +23,12 @@ struct SkeletonShimmerTests {
             windowWidth: 400,
             bandWidth: 140,
             originX: 20,
-            blockWidth: 300,
             isRightToLeft: false
         )
         let rightToLeft = SkeletonView.sweepTravel(
             windowWidth: 400,
             bandWidth: 140,
             originX: 20,
-            blockWidth: 300,
             isRightToLeft: true
         )
 
@@ -60,14 +57,36 @@ struct SkeletonShimmerTests {
         #expect(block.activeSweep == nil)
     }
 
-    // The start time is always in the past and never more than one sweep behind, which is what
-    // puts a block added later in the same phase as the blocks already on screen.
-    @Test func startTimeSitsWithinTheSweepAlreadyRunning() {
-        let duration: TimeInterval = 1.2
-        let start = ShimmerTimeline.startTime(duration: duration)
+    // The start time is always in the past and never more than one cycle behind, so a block added
+    // later joins the wave already running.
+    @Test func startTimeSitsWithinTheCycleAlreadyRunning() {
+        let cycle: TimeInterval = 1.2
+        let start = ShimmerTimeline.startTime(period: cycle)
         let now = CACurrentMediaTime()
 
         #expect(start <= now)
-        #expect(now - start < duration)
+        #expect(now - start < cycle)
+    }
+
+    // Reduce Motion replaces the sweep with the pulse on the block's fill, and the sweep stays off.
+    @Test func reduceMotionPulsesInsteadOfSweeping() throws {
+        SkeletonView.reduceMotionOverride = true
+        defer { SkeletonView.reduceMotionOverride = nil }
+
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 600))
+        let block = SkeletonView.block(height: 40)
+        block.translatesAutoresizingMaskIntoConstraints = false
+        window.addSubview(block)
+        NSLayoutConstraint.activate([
+            block.topAnchor.constraint(equalTo: window.topAnchor, constant: 20),
+            block.leadingAnchor.constraint(equalTo: window.leadingAnchor, constant: 20),
+            block.widthAnchor.constraint(equalToConstant: 200),
+        ])
+        window.layoutIfNeeded()
+
+        #expect(block.activeSweep == nil)
+        let pulse = try #require(block.activePulse)
+        #expect(pulse.repeatCount > 1_000)
+        #expect(pulse.autoreverses)
     }
 }

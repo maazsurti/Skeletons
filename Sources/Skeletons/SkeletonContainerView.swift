@@ -24,6 +24,8 @@ public final class SkeletonContainerView: UIView {
         isAccessibilityElement = true
         accessibilityTraits = .updatesFrequently
         accessibilityLabel = SkeletonTheme.current.loadingText
+
+        SweepOrder.placeComponents(in: self)
     }
 
     @available(*, unavailable)

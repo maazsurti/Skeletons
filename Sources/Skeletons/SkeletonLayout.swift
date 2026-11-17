@@ -160,7 +160,8 @@ public struct SkeletonLayout: SkeletonElement {
             content: content,
             spacing: spacing,
             padding: padding,
-            alignment: alignment
+            alignment: alignment,
+            tagsComponents: true
         )
         return SkeletonContainerView(content: stack)
     }
@@ -594,7 +595,9 @@ public struct SkeletonRows: SkeletonElement {
         stack.spacing = spacing
         stack.alignment = .fill
         for _ in 0..<max(count, 0) {
-            stack.addArrangedSubview(makeRow().makeView())
+            let row = makeRow().makeView()
+            SweepOrder.markComponent(row)
+            stack.addArrangedSubview(row)
         }
         if padding != .zero {
             stack.isLayoutMarginsRelativeArrangement = true
@@ -773,7 +776,8 @@ enum SkeletonStack {
         spacing: CGFloat?,
         padding: UIEdgeInsets,
         alignment: SkeletonAxisAlignment,
-        distribution: SkeletonDistribution = .fill
+        distribution: SkeletonDistribution = .fill,
+        tagsComponents: Bool = false
     ) -> UIStackView {
         let stack = UIStackView()
         stack.axis = axis
@@ -785,6 +789,9 @@ enum SkeletonStack {
         stack.setContentHuggingPriority(.required, for: .vertical)
         stack.setContentCompressionResistancePriority(.required, for: .vertical)
         for view in views(for: content.elements, axis: axis, spacing: stack.spacing) {
+            if tagsComponents {
+                SweepOrder.markComponent(view)
+            }
             stack.addArrangedSubview(view)
         }
         if padding != .zero {
@@ -856,7 +863,6 @@ enum SkeletonLineRun {
                 blocks.append(block)
                 stack.addArrangedSubview(block)
             }
-            blocks.dropFirst().forEach { $0.sweepAnchor = blocks[0] }
             return stack
         }
 
