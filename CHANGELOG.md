@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.2.4
+
+- The wave runs over the screen's components, not its blocks: a card, a row, a field or a section
+  takes the next place in document order and every block inside it shares that place, so a card of
+  five blocks sweeps as one surface instead of drawing a diagonal of its own. A piece the response
+  does not fill takes no place, so the topmost block on screen starts the wave.
+- The places are cumulative and never reduced modulo the pass: 0, 0.1, 0.2 … down the screen. The
+  screen repeats after one pass plus the time the wave takes to reach its last component, so no two
+  components share a phase and a long screen no longer restarts the wave at the top mid-pass.
+- The band's travel is the window's, not each block's own edges: every block crosses the same
+  distance at the same speed, whatever its width or origin, and a block carries its band when it
+  scrolls instead of re-attaching the animation mid-pass. The band sits clear of the window at both
+  ends of every pass, so the loop has no seam.
+- `ShimmerTimeline` holds the one clock: a block's place in the wave is a function of that clock and
+  its component, so re-attaching an animation lands exactly where the old one was.
+- `shimmerDuration` is still one pass and `shimmerStagger` is still the delay between neighbouring
+  components.
+
 ## 1.2.3
 
 - The sweep loops without a seam: the band travels clear of the block on both sides, so the wrap

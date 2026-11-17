@@ -168,16 +168,22 @@ which one is on screen.
 
 ## Behaviour
 
-- **One band, a wave.** Each block positions its highlight in window coordinates on a shared
-  `CACurrentMediaTime()`-aligned clock, and each block adds the phase its place on screen gives it:
-  `shimmerStagger` seconds after the one before it, top to bottom and then leading to trailing. The
-  phase wraps inside one sweep, so a block added late starts mid-wave rather than waiting. A fused
-  run of lines counts as one place and crosses as one surface. `shimmerStagger` is 0 puts every
-  block back in phase.
-- **A seamless loop.** The band crosses at a constant speed (`linear`, no easing into the edges), and
-  the travel starts and ends with the band clear of both the window and the block's own edges, so the
-  wrap back to the leading edge happens with nothing on screen. `shimmerDuration` is how long one
-  pass takes.
+- **One band, one wave over the components.** Every block positions its highlight in window
+  coordinates on a shared `CACurrentMediaTime()`-aligned clock, and each component takes the next
+  phase in document order: the topmost component starts the wave, and each one below it crosses
+  `shimmerStagger` seconds after the one above it, so a screen's offsets run 0, 0.1, 0.2 … A component
+  is the piece the eye reads as one — a card, a row, a field, a section — and every block inside it
+  crosses with it, so a card of five blocks sweeps as one surface. A piece the response does not
+  fill, such as a real banner or a heading that is already text, takes no place. `shimmerStagger` 0
+  puts every component back in phase. A block keeps its place while it is on screen, so a scroll or
+  a second block arriving cannot move its phase.
+- **A cycle long enough for the whole wave.** One pass takes `shimmerDuration`; the screen repeats
+  after a pass plus the time the wave needs to reach its last component — the stagger times the gaps
+  between components. No two components of a screen share a phase, however long the screen is.
+- **A seamless loop.** The band's travel is the window's, not each block's own edges, so every block
+  crosses the same distance at the same speed whatever its width or origin. The pass starts and ends
+  with the band clear of the window, so the repeat happens with nothing on screen, and a block that
+  scrolls carries its band with it rather than re-attaching it mid-pass.
 - **Right to left.** When `isRightToLeft` returns true the sweep enters from the trailing edge and the
   wave runs from the trailing edge across.
 - **Reduce Motion.** A gentle opacity pulse (0.55 ↔ 1) replaces the sweep, and the switcher swaps
