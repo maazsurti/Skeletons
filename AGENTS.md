@@ -56,10 +56,11 @@ SkeletonLayout(spacing: 14) {
 Every container takes `padding` (`CGFloat` or `UIEdgeInsets`), `spacing` and `alignment`; every
 element takes `.width`, `.height`, `.widthFraction`, `.padding` and `.hugging`, and the shapes take
 `.radius`. A stated width is a preference and gives way in a narrow container; a stated height
-holds. Lines with no spacing and no padding between them fuse into one block, so pass `spacing` when
-they should read as separate bars. Use `.listRow`, `.cardRow`, `.priceColumn`, `.chipRow`,
-`.formField` and `.pickerRow` for the rows and fields the app repeats; add a preset only when a
-screen uses it. Reach for a raw `SkeletonView` only where a real view's layout cannot be declared.
+holds. Lines with no spacing and no padding between them fuse into one rectangle at the widest
+width they ask for, so pass `spacing` when they should read as separate bars. Use `.listRow`,
+`.cardRow`, `.priceColumn`, `.formField` and `.pickerRow` for the rows and fields the app repeats;
+add a preset only when a screen uses it. Reach for a raw `SkeletonView` only where a real view's
+layout cannot be declared.
 
 ## When a skeleton appears
 

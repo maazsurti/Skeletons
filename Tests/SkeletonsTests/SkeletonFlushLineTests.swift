@@ -23,6 +23,19 @@ struct SkeletonFlushLineTests {
         view.constraints.first { $0.firstAttribute == .height && $0.secondItem == nil }?.constant
     }
 
+    private func absoluteWidth(of view: UIView) -> CGFloat? {
+        view.constraints.first { $0.firstAttribute == .width && $0.secondItem == nil }?.constant
+    }
+
+    /// The constraint tying the block to its superview's width lives on that superview.
+    private func fractionWidth(of view: UIView) -> NSLayoutConstraint? {
+        (view.superview?.constraints ?? []).first {
+            ($0.firstItem as? UIView) === view
+                && $0.firstAttribute == .width
+                && $0.secondItem != nil
+        }
+    }
+
     @Test func flushLinesDrawAsOneBlock() throws {
         try withTheme {
             let column = try #require(
@@ -68,8 +81,8 @@ struct SkeletonFlushLineTests {
         }
     }
 
-    /// Lines of different widths still read as one shape, and each keeps the width it asked for.
-    @Test func aFlushRunOfDifferentWidthsIsOneSteppedShape() throws {
+    /// Lines of different widths still read as one rectangle, at the widest width they ask for.
+    @Test func aFlushRunOfAbsoluteWidthsIsOneRectangleAtTheWidestWidth() throws {
         try withTheme {
             let column = try #require(
                 SkeletonColumn(spacing: 0) {
@@ -78,21 +91,80 @@ struct SkeletonFlushLineTests {
                 }.makeView() as? UIStackView
             )
 
-            let run = try #require(column.arrangedSubviews.first as? UIStackView)
             #expect(column.arrangedSubviews.count == 1)
-            #expect(run.axis == .vertical)
-            #expect(run.spacing == 0)
-            #expect(run.arrangedSubviews.count == 2)
+            let block = try #require(column.arrangedSubviews.first as? SkeletonView)
+            #expect(height(of: block) == 34)
+            #expect(absoluteWidth(of: block) == 224)
 
-            let widths = run.arrangedSubviews.map { view in
-                view.constraints.first { $0.firstAttribute == .width }?.constant
-            }
-            #expect(widths == [224, 168])
+            let fill = try #require(block.subviews.first)
+            #expect(fill.layer.maskedCorners == CACornerMask.skeletonAllCorners)
+        }
+    }
 
-            let top = try #require(run.arrangedSubviews.first?.subviews.first)
-            let bottom = try #require(run.arrangedSubviews.last?.subviews.first)
-            #expect(top.layer.maskedCorners == CACornerMask.skeletonTopCorners)
-            #expect(bottom.layer.maskedCorners == CACornerMask.skeletonBottomCorners)
+    @Test func aFlushRunOfFractionsIsOneRectangleAtTheWidestFraction() throws {
+        try withTheme {
+            let column = try #require(
+                SkeletonColumn(spacing: 0) {
+                    SkeletonLine(.custom(14), widthFraction: 0.5)
+                    SkeletonLine(.custom(14), widthFraction: 0.9)
+                }.makeView() as? UIStackView
+            )
+
+            #expect(column.arrangedSubviews.count == 1)
+            let block = try #require(column.arrangedSubviews.first as? SkeletonView)
+            #expect(height(of: block) == 34)
+            #expect(absoluteWidth(of: block) == nil)
+            let width = try #require(fractionWidth(of: block))
+            #expect(abs(width.multiplier - 0.9) < 0.001)
+        }
+    }
+
+    @Test func aFlushRunWithAFillingLineFills() throws {
+        try withTheme {
+            let column = try #require(
+                SkeletonColumn(spacing: 0) {
+                    SkeletonLine(.custom(14), width: 168)
+                    SkeletonLine(.custom(14))
+                }.makeView() as? UIStackView
+            )
+
+            let block = try #require(column.arrangedSubviews.first as? SkeletonView)
+            #expect(column.arrangedSubviews.count == 1)
+            #expect(absoluteWidth(of: block) == nil)
+            #expect(fractionWidth(of: block) == nil)
+        }
+    }
+
+    /// A mixed run takes the fraction: it is the wider of the two scales.
+    @Test func aFlushRunOfMixedWidthsTakesTheWidestFraction() throws {
+        try withTheme {
+            let column = try #require(
+                SkeletonColumn(spacing: 0) {
+                    SkeletonLine(.custom(14), width: 200)
+                    SkeletonLine(.custom(14), widthFraction: 0.6)
+                }.makeView() as? UIStackView
+            )
+
+            let block = try #require(column.arrangedSubviews.first as? SkeletonView)
+            #expect(column.arrangedSubviews.count == 1)
+            #expect(absoluteWidth(of: block) == nil)
+            let width = try #require(fractionWidth(of: block))
+            #expect(abs(width.multiplier - 0.6) < 0.001)
+        }
+    }
+
+    @Test func aFusedRectangleTakesTheLargerRadius() throws {
+        try withTheme {
+            let column = try #require(
+                SkeletonColumn(spacing: 0) {
+                    SkeletonLine(.custom(14), width: 224).radius(4)
+                    SkeletonLine(.custom(14), width: 168).radius(10)
+                }.makeView() as? UIStackView
+            )
+
+            let block = try #require(column.arrangedSubviews.first as? SkeletonView)
+            let fill = try #require(block.subviews.first)
+            #expect(fill.layer.cornerRadius == 10)
         }
     }
 

@@ -75,7 +75,7 @@ public final class SkeletonView: UIView {
     // MARK: - Lifecycle
 
     /// A block filled with the theme's base colour. `cornerRadius` falls back to the theme's.
-    /// `corners` names which corners round, so a run of flush blocks rounds only where it ends.
+    /// `corners` names which corners round.
     public init(
         cornerRadius: CGFloat? = nil,
         corners: CACornerMask = .skeletonAllCorners
@@ -306,8 +306,6 @@ extension CACornerMask {
         .layerMinXMinYCorner, .layerMaxXMinYCorner,
         .layerMinXMaxYCorner, .layerMaxXMaxYCorner,
     ]
-    static let skeletonTopCorners: CACornerMask = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
-    static let skeletonBottomCorners: CACornerMask = [.layerMinXMaxYCorner, .layerMaxXMaxYCorner]
 }
 
 extension UIView {

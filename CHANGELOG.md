@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.2.7
+
+- Flush placeholder lines of different widths draw as one rectangle at the widest width they ask
+  for, with all four outer corners rounded. A fused run is never stepped or L-shaped: a line with
+  no width of its own makes the rectangle fill, a run of fractions takes the largest, and a mixed
+  run takes its largest fraction.
+
 ## 1.2.6
 
 - The README opens with the problem the package solves, the skeleton a screen shows while it loads,

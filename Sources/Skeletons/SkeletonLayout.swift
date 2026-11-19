@@ -19,16 +19,22 @@ public extension SkeletonElement {
     var lineMetrics: SkeletonLineMetrics? { nil }
 }
 
-/// One line's geometry, so adjacent lines can fuse without losing what they each asked for.
+/// One line's geometry, so a flush run of lines can draw as one rectangle at the widest width they
+/// ask for.
 public struct SkeletonLineMetrics {
     public let height: CGFloat
     public let width: CGFloat?
     public let widthFraction: CGFloat?
     public let radius: CGFloat
 
-    /// Whether another line asks for the same width, so the two can draw as one rectangle.
+    /// Whether this line asks for exactly the width another line asks for.
     func matchesWidth(of other: SkeletonLineMetrics) -> Bool {
         width == other.width && widthFraction == other.widthFraction
+    }
+
+    /// Whether this line leaves its width to the container.
+    var fillsWidth: Bool {
+        width == nil && widthFraction == nil
     }
 }
 
@@ -833,46 +839,40 @@ enum SkeletonStack {
 
 // MARK: - Fused runs
 
-/// A run of lines with nothing between them, drawn as one surface: one block when they share a
-/// width, and a stepped block of flush segments when they do not.
+/// A run of lines with nothing between them, drawn as one rectangle: the summed height, all four
+/// corners rounded, and the widest width its lines ask for.
 @MainActor
 enum SkeletonLineRun {
 
     static func makeView(_ run: [SkeletonLineMetrics]) -> UIView {
         let first = run[0]
         let last = run[run.count - 1]
-        let radius = max(first.radius, last.radius)
-
-        guard run.allSatisfy({ $0.matchesWidth(of: first) }) else {
-            let stack = UIStackView()
-            stack.axis = .vertical
-            stack.spacing = 0
-            stack.alignment = .leading
-            var blocks: [SkeletonView] = []
-            for (index, line) in run.enumerated() {
-                let corners: CACornerMask = index == 0
-                    ? .skeletonTopCorners
-                    : (index == run.count - 1 ? .skeletonBottomCorners : [])
-                let block = SkeletonView.line(
-                    height: line.height,
-                    width: line.width,
-                    widthFraction: line.widthFraction,
-                    radius: line.radius,
-                    corners: corners
-                )
-                blocks.append(block)
-                stack.addArrangedSubview(block)
-            }
-            return stack
-        }
+        let width = width(of: run)
 
         return SkeletonView.line(
             height: run.reduce(0) { $0 + $1.height },
-            width: first.width,
-            widthFraction: first.widthFraction,
-            radius: radius,
+            width: width.absolute,
+            widthFraction: width.fraction,
+            radius: max(first.radius, last.radius),
             corners: .skeletonAllCorners
         )
+    }
+
+    /// The width the rectangle draws at: the widest one the run asks for.
+    private static func width(of run: [SkeletonLineMetrics]) -> (absolute: CGFloat?, fraction: CGFloat?) {
+        let first = run[0]
+        if run.allSatisfy({ $0.matchesWidth(of: first) }) {
+            return (first.width, first.widthFraction)
+        }
+        guard !run.contains(where: \.fillsWidth) else {
+            return (nil, nil)
+        }
+        let fractions = run.compactMap(\.widthFraction)
+        guard !fractions.isEmpty else {
+            return (run.compactMap(\.width).max(), nil)
+        }
+        // Mixed absolute and fractional widths: the fraction is the wider scale, so it wins.
+        return (nil, fractions.max())
     }
 }
 

@@ -66,11 +66,11 @@ iOS 17+, Swift 6 tools (Swift 5 language mode).
 In `Package.swift`:
 
 ```swift
-.package(url: "https://github.com/maazsurti/Skeletons.git", from: "1.2.6")
+.package(url: "https://github.com/maazsurti/Skeletons.git", from: "1.2.7")
 ```
 
 In Xcode: **File → Add Package Dependencies…**, paste the URL, and set the rule to *Up to Next Major*
-at 1.2.6. The product is **`Skeletons`**.
+at 1.2.7. The product is **`Skeletons`**.
 
 ## Quick start
 
@@ -203,9 +203,9 @@ takes its label from `loadingText`. Its `isShimmering` covers every block inside
 A layout accepts loops and conditionals: `for` and `if` work inside any container.
 
 Lines with nothing between them — a column or layout at `spacing: 0`, with no padding on the
-elements — draw as one block: one continuous fill with rounded outer corners and no seam where the
-lines meet. A gap of any size keeps them as separate bars. When the flush lines differ in width the
-run reads as one stepped block, and each line keeps the width it asked for.
+elements — draw as one rectangle: one continuous fill with four rounded outer corners and no seam
+where the lines meet. A gap of any size keeps them as separate bars. When the flush lines differ in
+width the rectangle takes the widest width they ask for, so it covers every line.
 
 A field is not a block. `SkeletonField` and `SkeletonPickerRow` draw the loaded control's chrome and
 real copy, and shimmer only the region the value occupies.
