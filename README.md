@@ -1,18 +1,55 @@
 # Skeletons
 
-Skeleton screens for UIKit: grey placeholder blocks with one shimmering band that crosses the screen
-while the real content loads.
+Skeleton screens for UIKit: grey placeholder blocks laid out like a screen's content, with one
+highlight band crossing them while a request is in flight.
 
-The package draws the blocks. Each screen places them in its own cards and cells.
+## The problem
+
+A screen with nothing to show yet is a blank view or a spinner. Building the placeholder by hand
+means a second copy of the screen's layout to keep in step, and a skeleton that appears for one
+frame on a fast load reads as a flicker.
+
+## What it looks like
+
+The screen shows the shape of what is coming — a title line, list rows, a card, a form field — in
+the theme's placeholder colour, in the place the real content will take. One band crosses the
+screen and the blocks take it in document order, so a card of five lines sweeps as one surface. A
+load that runs past 150 ms shows the skeleton for at least 300 ms, then cross-dissolves into the
+content over 200 ms; a faster load shows the content with no skeleton at all.
+
+## When to use it
+
+Use it on a UIKit screen whose content arrives from work that leaves a gap: a request, a database
+read, an image decode.
+
+The package draws `UIView` trees and ships no SwiftUI product. A SwiftUI screen needs its own
+placeholder, such as `.redacted(reason: .placeholder)`.
+
+Skip it on a screen that already holds content — a cached list, a form the user is filling — and
+for a wait that blocks the whole app, where a spinner states the wait more directly.
+
+## At a glance
+
+```swift
+import Skeletons
+
+let skeletonView = SkeletonLayout {
+    SkeletonLine(.title)
+    SkeletonRows(count: 5, spacing: 12, .listRow)
+}.makeView()
+
+let switcher = SkeletonSwitcher(skeleton: skeletonView, content: contentView)
+switcher.startLoading()
+```
+
+Place `skeletonView` and `contentView` in the same frame, one over the other, and call
+`switcher.showContent()` when the response arrives.
 
 ## What you get
 
-- **A shape, not a pile of views.** Declare the skeleton with `SkeletonLayout` — lines, blocks,
-  photos, cards, rows, repeats — and the theme supplies the spacing, radii and line heights.
-- **One wave across the screen.** A single band crosses the components in document order, so a
-  card of five blocks sweeps as one surface instead of drawing a diagonal of its own.
-- **Timing that does not flash.** `SkeletonSwitcher` shows the skeleton only if the load outlasts
-  150 ms, keeps it up for at least 300 ms, and cross-dissolves over 200 ms.
+- **A shape in one declaration.** `SkeletonLayout` takes lines, blocks, photos, cards, rows and
+  repeats; the theme supplies the spacing, radii and line heights. The same blocks can be placed by
+  hand in a stack view instead.
 - **Fields keep their chrome.** `SkeletonField` and `SkeletonPickerRow` draw the real surface,
   border, height, padding, label, accessory and chevron; only the value area shimmers.
 - **Accessible by default.** The screen's skeleton reads as one VoiceOver "Loading" element; Reduce
@@ -29,11 +66,11 @@ iOS 17+, Swift 6 tools (Swift 5 language mode).
 In `Package.swift`:
 
 ```swift
-.package(url: "https://github.com/maazsurti/Skeletons.git", from: "1.2.5")
+.package(url: "https://github.com/maazsurti/Skeletons.git", from: "1.2.6")
 ```
 
 In Xcode: **File → Add Package Dependencies…**, paste the URL, and set the rule to *Up to Next Major*
-at 1.2.5. The product is **`Skeletons`**.
+at 1.2.6. The product is **`Skeletons`**.
 
 ## Quick start
 

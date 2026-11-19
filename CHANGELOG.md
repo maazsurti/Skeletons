@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.6
+
+- The README opens with the problem the package solves, the skeleton a screen shows while it loads,
+  when to use it and a quick-start fragment, before the feature list.
+- No code changes.
+
 ## 1.2.5
 
 - The README leads with what the package does and what a screen gets from it — the features in user
