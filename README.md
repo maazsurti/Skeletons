@@ -1,26 +1,66 @@
 # Skeletons
 
-Placeholder blocks for UIKit screens while their content loads. The blocks carry one shimmer band
-that crosses them as a wave, a Reduce Motion pulse replaces it when that setting is on, and a
-switcher keeps the exchange from flashing.
+Skeleton screens for UIKit: grey placeholder blocks with one shimmering band that crosses the screen
+while the real content loads.
 
 The package draws the blocks. Each screen places them in its own cards and cells.
 
-## For agents
+## What you get
 
-Adding or changing a skeleton in a host app: read [`AGENTS.md`](./AGENTS.md) first. It carries the
-rules — what to grey out and what to keep real, how a field loads, when a selection brings the
-skeleton back, the timings, and the accessibility requirements.
+- **A shape, not a pile of views.** Declare the skeleton with `SkeletonLayout` — lines, blocks,
+  photos, cards, rows, repeats — and the theme supplies the spacing, radii and line heights.
+- **One wave across the screen.** A single band crosses the components in document order, so a
+  card of five blocks sweeps as one surface instead of drawing a diagonal of its own.
+- **Timing that does not flash.** `SkeletonSwitcher` shows the skeleton only if the load outlasts
+  150 ms, keeps it up for at least 300 ms, and cross-dissolves over 200 ms.
+- **Fields keep their chrome.** `SkeletonField` and `SkeletonPickerRow` draw the real surface,
+  border, height, padding, label, accessory and chevron; only the value area shimmers.
+- **Accessible by default.** The screen's skeleton reads as one VoiceOver "Loading" element; Reduce
+  Motion replaces the sweep with an opacity pulse; right-to-left layouts sweep from the trailing edge.
+- **Themeable.** Colours, radii, timing and the loading copy live in one `SkeletonTheme`. Every value
+  has a default, and the default colours follow light and dark mode.
+
+## Requirements
+
+iOS 17+, Swift 6 tools (Swift 5 language mode).
 
 ## Install
 
+In `Package.swift`:
+
 ```swift
-.package(url: "https://github.com/maazsurti/Skeletons.git", from: "1.2.2")
+.package(url: "https://github.com/maazsurti/Skeletons.git", from: "1.2.5")
 ```
 
-## Products
+In Xcode: **File → Add Package Dependencies…**, paste the URL, and set the rule to *Up to Next Major*
+at 1.2.5. The product is **`Skeletons`**.
 
-- **`Skeletons`** — UIKit.
+## Quick start
+
+Declare the shape, build it, and hand the skeleton and the content to a switcher. The theme is
+optional: every value has a default, and `SkeletonTheme.current` is read when a skeleton is built.
+
+```swift
+import Skeletons
+
+let skeleton = SkeletonLayout {
+    SkeletonLine(.title)
+    SkeletonRows(count: 5, spacing: 12, .listRow)
+}
+let skeletonView = skeleton.makeView()
+
+// Place skeletonView and contentView in the same frame, one over the other.
+let switcher = SkeletonSwitcher(skeleton: skeletonView, content: contentView)
+
+switcher.startLoading()
+service.fetch { result in
+    apply(result)
+    switcher.showContent()
+}
+```
+
+`skeletonView` is a `SkeletonContainerView`, so the blocks inside it are hidden from VoiceOver and
+the screen reads a single "Loading".
 
 ## Set up
 
@@ -40,8 +80,9 @@ SkeletonTheme.current = SkeletonTheme(
 )
 ```
 
-Every value has a system default, so `SkeletonTheme()` works as it is. Default colours are dynamic
-and follow light and dark mode.
+`base` and `highlight` are the app's own block and band colours. Every value has a default, so
+`SkeletonTheme()` is complete as it is, and the default colours are dynamic and follow light and
+dark mode.
 
 A loading field takes `fieldSurface`, `fieldBorder`, `fieldText`, `fieldTextFont`, `fieldHeight`,
 `fieldRadius` and `fieldPadding` from the same theme. Point them at the app's field metrics so the
@@ -107,7 +148,8 @@ takes its label from `loadingText`. Its `isShimmering` covers every block inside
   `SkeletonTheme.lineHeight`.
 - `SkeletonBlock(height:width:radius:)`, `SkeletonPhoto(width:height:aspect:radius:)`,
   `SkeletonCircle(diameter:)` — everything else a response fills.
-- `SkeletonCard(padding:radius:background:border:shadow:)` — the real card's chrome around content.
+- `SkeletonCard(padding:spacing:radius:background:border:shadow:)` — the real card's chrome around
+  its content.
 - `SkeletonField(placeholder:icon:leading:showsChevron:valueWidthFraction:height:radius:padding:)` —
   a text field in the loaded field's chrome. No placeholder is drawn: the shimmering value line is
   the text, and the placeholder copy, when given, only sets that line's width.
@@ -117,9 +159,11 @@ takes its label from `loadingText`. Its `isShimmering` covers every block inside
   site.
 - `SkeletonSpacer()` — takes the spare width in a row.
 - `SkeletonReal(view)` — a real view (copy, a heading, a control) inside the shape.
-- Presets: `.listRow`, `.cardRow`, `.priceColumn`, `.chipRow`, `.formField`, `.pickerRow`.
+- Presets: `.listRow`, `.cardRow`, `.priceColumn`, `.formField`, `.pickerRow`.
 - Modifiers on any element: `.width(_:)`, `.height(_:)`, `.widthFraction(_:)`, `.padding(_:)`,
-  `.hugging`. Lines, blocks and photos also take `.radius(_:)`.
+  `.aspect(_:)`, `.hugging`. Lines, blocks and photos also take `.radius(_:)`.
+
+A layout accepts loops and conditionals: `for` and `if` work inside any container.
 
 Lines with nothing between them — a column or layout at `spacing: 0`, with no padding on the
 elements — draw as one block: one continuous fill with rounded outer corners and no seam where the
@@ -191,6 +235,11 @@ which one is on screen.
 - **Nothing runs while hidden.** A block off-window or hidden stops its animation;
   `isShimmering = false` stops it outright.
 
-## Requirements
+## Contributing
 
-iOS 17+, Swift 6 tools (Swift 5 language mode).
+Adding or changing a skeleton in a host app: read [`AGENTS.md`](./AGENTS.md) first. It carries the
+rules — what to grey out and what to keep real, how a field loads, when a selection brings the
+skeleton back, the timings, and the accessibility requirements.
+
+`Tests/SkeletonsTests/` runs with
+`xcodebuild test -scheme Skeletons -destination 'platform=iOS Simulator,id=<udid>'`.

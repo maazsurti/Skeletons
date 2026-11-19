@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.2.5
+
+- The README leads with what the package does and what a screen gets from it — the features in user
+  terms, requirements, installation and a quick start that builds a layout and swaps it with
+  `SkeletonSwitcher` — before the reference sections.
+- The preset list names the presets the package has: `.listRow`, `.cardRow`, `.priceColumn`,
+  `.formField` and `.pickerRow`.
+
 ## 1.2.4
 
 - The wave runs over the screen's components, not its blocks: a card, a row, a field or a section
