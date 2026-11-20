@@ -24,11 +24,16 @@ enum ShimmerTimeline {
         return Double(components - 1) * stagger
     }
 
-    /// One full wave of a screen: one pass plus the time the wave takes to reach the last
-    /// component. The band is held outside the window for the remainder, so the wave loops once
-    /// the last component has crossed.
-    static func period(pass: TimeInterval, components: Int, stagger: TimeInterval) -> TimeInterval {
-        pass + spread(components: components, stagger: stagger)
+    /// One full wave of a screen: one pass, the rest the band takes off the window, and the time the
+    /// wave takes to reach the last component. The band is held outside the window for the rest of
+    /// the cycle, so the wave loops once the last component has crossed and the band has rested.
+    static func period(
+        pass: TimeInterval,
+        rest: TimeInterval = 0,
+        components: Int,
+        stagger: TimeInterval
+    ) -> TimeInterval {
+        pass + max(rest, 0) + spread(components: components, stagger: stagger)
     }
 
     /// The start of the pass `offset` is in, at or before now, on the shared clock. Adding an
@@ -52,8 +57,8 @@ enum ShimmerTimeline {
     }
 
     /// The sweep a block runs: a pass across the window at a constant speed, a hold outside the
-    /// window while the rest of the wave crosses, and a repeat on the shared clock. Both ends of
-    /// the pass sit clear of the window, so the repeat cannot be seen.
+    /// window for the rest and the time the rest of the wave crosses, and a repeat on the shared
+    /// clock. Both ends of the pass sit clear of the window, so the repeat cannot be seen.
     static func sweepAnimation(
         from: CGFloat,
         to: CGFloat,

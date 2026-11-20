@@ -92,7 +92,7 @@ struct SweepLoopTests {
         try #require(!UIAccessibility.isReduceMotionEnabled)
 
         let original = SkeletonTheme.current
-        SkeletonTheme.current = SkeletonTheme(shimmerDuration: 1.7, shimmerStagger: 0)
+        SkeletonTheme.current = SkeletonTheme(shimmerDuration: 1.7, shimmerStagger: 0, shimmerMinRest: 0)
         defer { SkeletonTheme.current = original }
 
         let block = try blockInAWindow()
@@ -101,17 +101,38 @@ struct SweepLoopTests {
 
         #expect(sweep.repeatCount == .infinity)
         #expect(sweep.calculationMode == .linear)
-        // One component and no stagger: the pass fills the cycle.
+        // One component, no stagger and no rest: the pass fills the cycle.
         #expect(abs(sweep.duration - 1.7) < 0.000_001)
         #expect(keyTimes.map(\.doubleValue) == [0, 1])
     }
 
-    /// A pass and the hold after it add up to one wave of the screen's components.
+    /// The band waits off the window for the themed rest before it repeats, and the wait is the
+    /// pass's own end date, not part of the crossing.
+    @Test func theBandRestsBeforeItRepeats() throws {
+        try #require(!UIAccessibility.isReduceMotionEnabled)
+
+        let original = SkeletonTheme.current
+        SkeletonTheme.current = SkeletonTheme(shimmerDuration: 1.7, shimmerStagger: 0, shimmerMinRest: 0.4)
+        defer { SkeletonTheme.current = original }
+
+        let block = try blockInAWindow()
+        let sweep = try #require(block.activeSweep as? CAKeyframeAnimation)
+        let keyTimes = try #require(sweep.keyTimes)
+
+        #expect(abs(sweep.duration - 2.1) < 0.000_001)
+        #expect(keyTimes.first?.doubleValue == 0)
+        #expect(abs(keyTimes[1].doubleValue * sweep.duration - 1.7) < 0.000_001)
+        #expect(abs((1 - keyTimes[1].doubleValue) * sweep.duration - 0.4) < 0.000_001)
+        #expect(keyTimes[2].doubleValue == 1)
+        #expect(sweep.values?.count == 3)
+    }
+
+    /// A pass, the band's rest and the hold after it add up to one wave of the screen's components.
     @Test func theCycleCoversTheWholeScreensSpread() throws {
         try #require(!UIAccessibility.isReduceMotionEnabled)
 
         let original = SkeletonTheme.current
-        SkeletonTheme.current = SkeletonTheme(shimmerDuration: 1.7, shimmerStagger: 0.1)
+        SkeletonTheme.current = SkeletonTheme(shimmerDuration: 1.7, shimmerStagger: 0.1, shimmerMinRest: 0.25)
         defer { SkeletonTheme.current = original }
 
         let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 402, height: 600))
@@ -129,8 +150,8 @@ struct SweepLoopTests {
         let sweep = try #require(block.activeSweep as? CAKeyframeAnimation)
         let keyTimes = try #require(sweep.keyTimes)
 
-        // Four components: the wave lasts 1.7 + 0.3.
-        #expect(abs(sweep.duration - 2.0) < 0.000_001)
+        // Four components: the wave lasts 1.7 + 0.25 of rest + 0.3.
+        #expect(abs(sweep.duration - 2.25) < 0.000_001)
         #expect(abs(keyTimes[1].doubleValue * sweep.duration - 1.7) < 0.000_001)
         #expect(keyTimes[2].doubleValue == 1)
         #expect(sweep.values?.count == 3)
@@ -152,7 +173,7 @@ struct SweepLoopTests {
         block.layoutIfNeeded()
 
         let second = try #require((block.activeSweep as? CAKeyframeAnimation)?.beginTime)
-        let period = 1.7
+        let period = ShimmerTimeline.period(pass: 1.7, rest: 0.25, components: 1, stagger: 0.1)
         let cycle = (first - second).truncatingRemainder(dividingBy: period)
         #expect(abs(cycle) < 0.001 || abs(cycle + period) < 0.001 || abs(cycle - period) < 0.001)
     }

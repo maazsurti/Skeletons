@@ -28,12 +28,19 @@ struct SkeletonStaggerTests {
         #expect(Set(offsets).count == 20)
     }
 
-    /// The screen's cycle is one pass plus the time the wave takes to reach its last component.
+    /// The screen's cycle is one pass, the band's rest, and the time the wave takes to reach its
+    /// last component.
     @Test func theCycleCoversTheScreensWholeSpread() {
+        #expect(abs(ShimmerTimeline.period(pass: pass, rest: 0.25, components: 1, stagger: stagger) - 1.95) < 0.000_001)
+        #expect(abs(ShimmerTimeline.period(pass: pass, rest: 0.25, components: 3, stagger: stagger) - 2.15) < 0.000_001)
+        #expect(abs(ShimmerTimeline.period(pass: pass, rest: 0.25, components: 4, stagger: stagger) - 2.25) < 0.000_001)
+        #expect(abs(ShimmerTimeline.period(pass: pass, rest: 0.25, components: 20, stagger: stagger) - 3.85) < 0.000_001)
+    }
+
+    /// A rest of zero leaves the cycle as the wave alone, and a negative rest cannot shorten it.
+    @Test func aRestOfZeroOrLessNeverShortensTheCycle() {
         #expect(abs(ShimmerTimeline.period(pass: pass, components: 1, stagger: stagger) - 1.7) < 0.000_001)
-        #expect(abs(ShimmerTimeline.period(pass: pass, components: 3, stagger: stagger) - 1.9) < 0.000_001)
-        #expect(abs(ShimmerTimeline.period(pass: pass, components: 4, stagger: stagger) - 2.0) < 0.000_001)
-        #expect(abs(ShimmerTimeline.period(pass: pass, components: 20, stagger: stagger) - 3.6) < 0.000_001)
+        #expect(abs(ShimmerTimeline.period(pass: pass, rest: -0.4, components: 1, stagger: stagger) - 1.7) < 0.000_001)
     }
 
     /// The layout's own pieces take the places: a bare line is one, a card and everything inside it
@@ -186,7 +193,7 @@ struct SkeletonStaggerTests {
 
         let a = try #require((first.activeSweep as? CAKeyframeAnimation)?.beginTime)
         let b = try #require((second.activeSweep as? CAKeyframeAnimation)?.beginTime)
-        let period = ShimmerTimeline.period(pass: pass, components: 2, stagger: 0.15)
+        let period = ShimmerTimeline.period(pass: pass, rest: 0.25, components: 2, stagger: 0.15)
         let delta = b - a
         let wrapped = delta - (delta / period).rounded() * period
         #expect(abs(abs(wrapped) - 0.15) < 0.01)

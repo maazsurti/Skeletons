@@ -213,10 +213,12 @@ public final class SkeletonView: UIView {
 
         let theme = SkeletonTheme.current
         let pass = max(theme.shimmerDuration, 0.2)
+        let rest = max(theme.shimmerMinRest, 0)
         let place = SweepOrder.place(of: self)
         let offset = ShimmerTimeline.offset(ordinal: place.ordinal, stagger: theme.shimmerStagger)
         let period = ShimmerTimeline.period(
             pass: pass,
+            rest: rest,
             components: place.count,
             stagger: theme.shimmerStagger
         )

@@ -112,6 +112,7 @@ SkeletonTheme.current = SkeletonTheme(
     cornerRadius: 8,
     shimmerDuration: 1.7,
     shimmerStagger: 0.10,
+    shimmerMinRest: 0.25,
     loadingText: String(localized: "Loading"),
     isRightToLeft: { Locale.current.language.characterDirection == .rightToLeft }
 )
@@ -258,19 +259,22 @@ which one is on screen.
   fill, such as a real banner or a heading that is already text, takes no place. `shimmerStagger` 0
   puts every component back in phase. A block keeps its place while it is on screen, so a scroll or
   a second block arriving cannot move its phase.
-- **A cycle long enough for the whole wave.** One pass takes `shimmerDuration`; the screen repeats
-  after a pass plus the time the wave needs to reach its last component — the stagger times the gaps
-  between components. No two components of a screen share a phase, however long the screen is.
+- **A cycle long enough for the whole wave.** One pass takes `shimmerDuration`, then the band waits
+  off the window for `shimmerMinRest` (0.25 s by default) before it repeats; the screen repeats after
+  the pass, that rest and the time the wave needs to reach its last component — the stagger times the
+  gaps between components. No two components of a screen share a phase, however long the screen is.
+  The rest is added on top of the wave, so a screen with many components keeps both its spread and
+  its pause.
 - **A lean of 45°.** The highlight is a stripe tipped to a quarter turn, leaning the way the pass
   runs — a "/" from left to right, mirrored from right to left. Every block of a component draws
   that stripe on the same line, so a card's lines and its photo read one slash rather than a stepped
   band per line; the stripe's ends run past each block as it crosses. Its falloff is a soft bell
   rather than a single peak, so the edge of the band has no hard line.
-- **A seamless loop.** The band's travel is the window's, not each block's own edges, so every block
-  is crossed by the same band whatever its width or origin. A leaning stripe also spans the
-  component's height, so the pass runs that much further to start and finish with the whole stripe
-  clear of the window; the repeat happens with nothing on screen, and a block that scrolls carries
-  its band with it rather than re-attaching it mid-pass.
+- **A seamless loop with a pause between repeats.** The band's travel is the window's, not each
+  block's own edges, so every block is crossed by the same band whatever its width or origin. A
+  leaning stripe also spans the component's height, so the pass runs that much further to start and
+  finish with the whole stripe clear of the window; the repeat happens with nothing on screen, and a
+  block that scrolls carries its band with it rather than re-attaching it mid-pass.
 - **Right to left.** When `isRightToLeft` returns true the sweep enters from the trailing edge and the
   wave runs from the trailing edge across.
 - **Reduce Motion.** A gentle opacity pulse (0.55 ↔ 1) replaces the sweep, and the switcher swaps

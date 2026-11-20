@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.3.0
+
+- The sweep takes a rest off the window between repeats, set by `SkeletonTheme.shimmerMinRest`:
+  0.25 s by default, and clamped at zero. The band leaves the window, stays away for that rest and
+  only then begins its next pass, instead of arriving the frame it left. A screen's cycle is one
+  pass, the rest, and the stagger across its components, so a longer rest is added on top of the
+  wave rather than taken out of the crossing.
+- A rest of zero keeps the previous timing exactly: the pass fills the cycle and the repeat happens
+  with nothing between the two ends.
+
 ## 1.2.8
 
 - The highlight is a 45° stripe leaning the way the pass runs — a "/" from left to right, and the

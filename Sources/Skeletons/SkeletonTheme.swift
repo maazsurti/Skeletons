@@ -20,6 +20,11 @@ public struct SkeletonTheme {
     /// screen cross in a wave rather than together. Zero puts them all back in phase.
     public var shimmerStagger: TimeInterval
 
+    /// The shortest rest, in seconds, the band takes between one pass and the next. It is added to
+    /// the pass, so every repeat begins with the whole band off the window for at least this long.
+    /// Negative values are read as zero.
+    public var shimmerMinRest: TimeInterval
+
     /// The text VoiceOver reads for a skeleton container.
     public var loadingText: String
 
@@ -66,6 +71,7 @@ public struct SkeletonTheme {
         cornerRadius: CGFloat = 8,
         shimmerDuration: TimeInterval = 1.7,
         shimmerStagger: TimeInterval = 0.10,
+        shimmerMinRest: TimeInterval = 0.25,
         loadingText: String = "Loading",
         isRightToLeft: @escaping () -> Bool = {
             UIApplication.shared.userInterfaceLayoutDirection == .rightToLeft
@@ -87,6 +93,7 @@ public struct SkeletonTheme {
         self.cornerRadius = cornerRadius
         self.shimmerDuration = shimmerDuration
         self.shimmerStagger = shimmerStagger
+        self.shimmerMinRest = shimmerMinRest
         self.loadingText = loadingText
         self.isRightToLeft = isRightToLeft
         self.spacing = spacing

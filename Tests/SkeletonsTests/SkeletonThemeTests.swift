@@ -11,6 +11,7 @@ struct SkeletonThemeTests {
         let theme = SkeletonTheme()
         #expect(theme.cornerRadius == 8)
         #expect(theme.shimmerDuration == 1.7)
+        #expect(theme.shimmerMinRest == 0.25)
         #expect(theme.loadingText == "Loading")
     }
 
