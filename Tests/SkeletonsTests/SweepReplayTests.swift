@@ -16,17 +16,18 @@ struct SweepReplayTests {
         let name: String
         let windowWidth: CGFloat
         let blockWidth: CGFloat
+        let blockHeight: CGFloat
         let originX: CGFloat
 
         var description: String { name }
     }
 
     private let shapes = [
-        Shape(name: "full-width card", windowWidth: 402, blockWidth: 362, originX: 20),
-        Shape(name: "narrow chip", windowWidth: 402, blockWidth: 120, originX: 282),
-        Shape(name: "flush to the leading edge", windowWidth: 402, blockWidth: 200, originX: 0),
-        Shape(name: "scrolled off the leading edge", windowWidth: 402, blockWidth: 200, originX: -30),
-        Shape(name: "wider than the window", windowWidth: 402, blockWidth: 520, originX: -40),
+        Shape(name: "full-width card", windowWidth: 402, blockWidth: 362, blockHeight: 120, originX: 20),
+        Shape(name: "narrow chip", windowWidth: 402, blockWidth: 120, blockHeight: 40, originX: 282),
+        Shape(name: "flush to the leading edge", windowWidth: 402, blockWidth: 200, blockHeight: 14, originX: 0),
+        Shape(name: "scrolled off the leading edge", windowWidth: 402, blockWidth: 200, blockHeight: 64, originX: -30),
+        Shape(name: "wider than the window", windowWidth: 402, blockWidth: 520, blockHeight: 210, originX: -40),
     ]
 
     private let band: CGFloat = 140.7
@@ -34,12 +35,15 @@ struct SweepReplayTests {
     private let stagger: TimeInterval = 0.1
     private let frame: TimeInterval = 1.0 / 60.0
 
-    /// The band's leading edge in the block's own coordinates at a fraction of a pass.
+    /// Where the container carrying the band sits in the block's own coordinates at a fraction of a
+    /// pass.
     private func blockX(_ shape: Shape, progress: Double, isRightToLeft: Bool) -> CGFloat {
         let travel = SkeletonView.sweepTravel(
             windowWidth: shape.windowWidth,
             bandWidth: band,
-            originX: shape.originX,
+            height: shape.blockHeight,
+            reach: shape.blockHeight,
+            anchor: shape.originX,
             isRightToLeft: isRightToLeft
         )
         return travel.from + CGFloat(progress) * (travel.to - travel.from)
@@ -50,6 +54,17 @@ struct SweepReplayTests {
         blockX(shape, progress: progress, isRightToLeft: isRightToLeft) + shape.originX
     }
 
+    /// The horizontal span the band covers in the window at a fraction of a pass. A stripe leaning
+    /// 45° covers its own width and the block's height, half of that height past each end.
+    private func bandSpan(
+        _ shape: Shape,
+        progress: Double,
+        isRightToLeft: Bool
+    ) -> ClosedRange<CGFloat> {
+        let low = windowX(shape, progress: progress, isRightToLeft: isRightToLeft) - shape.blockHeight / 2
+        return low...(low + band + shape.blockHeight)
+    }
+
     /// The part of the block the reader can see, in window coordinates.
     private func visibleSpan(_ shape: Shape) -> ClosedRange<CGFloat> {
         max(0, shape.originX)...min(shape.windowWidth, shape.originX + shape.blockWidth)
@@ -57,8 +72,7 @@ struct SweepReplayTests {
 
     /// Whether any of the band is inside the window.
     private func isOnScreen(_ shape: Shape, progress: Double, isRightToLeft: Bool) -> Bool {
-        let leading = windowX(shape, progress: progress, isRightToLeft: isRightToLeft)
-        let span = leading...(leading + band)
+        let span = bandSpan(shape, progress: progress, isRightToLeft: isRightToLeft)
         let visible = visibleSpan(shape)
         return span.upperBound > visible.lowerBound && span.lowerBound < visible.upperBound
     }
@@ -68,49 +82,50 @@ struct SweepReplayTests {
     @Test func aPassBeginsAndEndsClearOfTheWindow() {
         for shape in shapes {
             for isRightToLeft in [false, true] {
-                let first = windowX(shape, progress: 0, isRightToLeft: isRightToLeft)
-                let last = windowX(shape, progress: 1, isRightToLeft: isRightToLeft)
+                let first = bandSpan(shape, progress: 0, isRightToLeft: isRightToLeft)
+                let last = bandSpan(shape, progress: 1, isRightToLeft: isRightToLeft)
                 let visible = visibleSpan(shape)
 
                 #expect(!isOnScreen(shape, progress: 0, isRightToLeft: isRightToLeft), "\(shape) begins on the block")
                 #expect(!isOnScreen(shape, progress: 1, isRightToLeft: isRightToLeft), "\(shape) ends on the block")
 
                 if isRightToLeft {
-                    #expect(first >= visible.upperBound)
-                    #expect(last + band <= visible.lowerBound)
+                    #expect(first.lowerBound >= visible.upperBound)
+                    #expect(last.upperBound <= visible.lowerBound)
                 } else {
-                    #expect(first + band <= visible.lowerBound)
-                    #expect(last >= visible.upperBound)
+                    #expect(first.upperBound <= visible.lowerBound)
+                    #expect(last.lowerBound >= visible.upperBound)
                 }
             }
         }
     }
 
-    /// Every shape crosses the same distance in the same pass, so one band crosses the whole
-    /// screen at one speed whatever the blocks' own widths and origins are.
-    @Test func onePassMovesAtOneSpeedForEveryShape() {
-        var speeds: [CGFloat] = []
+    /// A pass carries the window's width, the band and the block's own slant, whatever the block's
+    /// width or origin, so the window is crossed by the band rather than by each block's edges.
+    @Test func aPassCrossesTheWindowPlusTheBandsSlant() {
         for shape in shapes {
-            let travel = SkeletonView.sweepTravel(
-                windowWidth: shape.windowWidth,
-                bandWidth: band,
-                originX: shape.originX,
-                isRightToLeft: false
-            )
-            let distance = travel.to - travel.from
-            #expect(abs(distance - (shape.windowWidth + band)) < 0.001, "\(shape) crosses its own distance")
-            speeds.append(distance / CGFloat(pass))
-        }
-        let first = speeds[0]
-        for speed in speeds {
-            #expect(abs(speed - first) < 0.001)
+            for isRightToLeft in [false, true] {
+                let travel = SkeletonView.sweepTravel(
+                    windowWidth: shape.windowWidth,
+                    bandWidth: band,
+                    height: shape.blockHeight,
+                    reach: shape.blockHeight,
+                    anchor: shape.originX,
+                    isRightToLeft: isRightToLeft
+                )
+                let distance = abs(travel.to - travel.from)
+                #expect(
+                    abs(distance - (shape.windowWidth + band + shape.blockHeight)) < 0.001,
+                    "\(shape) crosses the window and its own slant"
+                )
+            }
         }
     }
 
     /// Stepped at 60 Hz, the band never moves more than one frame's travel while it is on screen.
     @Test func theBandNeverJumpsWhileItIsOnScreen() {
         for shape in shapes {
-            let step = (shape.windowWidth + band) * CGFloat(frame) / CGFloat(pass)
+            let step = (shape.windowWidth + band + shape.blockHeight) * CGFloat(frame) / CGFloat(pass)
             for isRightToLeft in [false, true] {
                 let samples = Int((3 * pass) / frame) + 1
                 for index in 1..<samples {

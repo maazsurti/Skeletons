@@ -7,7 +7,14 @@ import UIKit
 public final class SkeletonView: UIView {
 
     private let fill = UIView()
-    private let highlight = CAGradientLayer()
+
+    /// The band's container. It carries the sweep's x translation, so the stripe's rotation never
+    /// meets the animation: one layer moves, the other is only ever tilted.
+    private let highlight = CALayer()
+
+    /// The stripe itself: a gradient tilted 45°, drawn taller than the block so its ends leave the
+    /// block as it crosses.
+    private let band = CAGradientLayer()
 
     private var widthFraction: CGFloat?
     private var fractionConstraint: NSLayoutConstraint?
@@ -96,6 +103,7 @@ public final class SkeletonView: UIView {
         fill.translatesAutoresizingMaskIntoConstraints = false
         addSubview(fill)
         fill.layer.addSublayer(highlight)
+        highlight.addSublayer(band)
         NSLayoutConstraint.activate([
             fill.topAnchor.constraint(equalTo: topAnchor),
             fill.leadingAnchor.constraint(equalTo: leadingAnchor),
@@ -149,6 +157,7 @@ public final class SkeletonView: UIView {
     public override func layoutSubviews() {
         super.layoutSubviews()
         highlight.frame = CGRect(x: 0, y: 0, width: bandWidth, height: bounds.height)
+        layOutBand()
         updateAnimation(force: false)
     }
 
@@ -161,18 +170,26 @@ public final class SkeletonView: UIView {
 
     // MARK: - Animation
 
-    /// Where the highlight's leading edge sits in the block's own coordinates for a pass across the
-    /// window, with the block starting at `originX` in that window. The travel is the window's,
-    /// carried into the block's coordinates, so every block crosses at one speed and the band sits
-    /// clear of the window at both ends of the pass.
+    /// Where the highlight's container sits in the block's own coordinates for a pass across the
+    /// window. The travel is the window's, carried into the block's coordinates, so every block is
+    /// crossed by the same band whatever its width, and the band sits clear of the window at both
+    /// ends of the pass.
+    ///
+    /// The band is a stripe leaning 45°, so it covers `reach` points across as well as its own
+    /// width: half the reach hangs past each end, and the pass runs that much further to start and
+    /// finish with nothing of it on the window. `height` is the block's own height, which places the
+    /// stripe's middle on the block's middle, and `anchor` is the block's window x plus how far it
+    /// sits down its component — so every block of a component draws one line, tilted together.
     static func sweepTravel(
         windowWidth: CGFloat,
         bandWidth: CGFloat,
-        originX: CGFloat,
+        height: CGFloat,
+        reach: CGFloat,
+        anchor: CGFloat,
         isRightToLeft: Bool
     ) -> (from: CGFloat, to: CGFloat) {
-        let leading = -bandWidth - originX
-        let trailing = windowWidth - originX
+        let leading = -bandWidth - anchor - height / 2
+        let trailing = windowWidth + reach - anchor - height / 2
         return isRightToLeft ? (trailing, leading) : (leading, trailing)
     }
 
@@ -203,10 +220,17 @@ public final class SkeletonView: UIView {
             components: place.count,
             stagger: theme.shimmerStagger
         )
-        let originX = convert(bounds, to: window).minX
+        let frame = convert(bounds, to: window)
+        let component = SweepOrder.component(of: self)
+        let componentFrame = component.convert(component.bounds, to: window)
+        // A block sits on its component's diagonal by its own window x, plus how far down the
+        // component it starts: every block of a card draws the same line, at any height.
+        let anchor = frame.minX + (frame.minY - componentFrame.minY)
+        let reach = max(componentFrame.height, bounds.height)
         let signature = [
             String(Double(window.bounds.width)),
             String(Double(bandWidth)),
+            String(Double(bounds.height)),
             String(Double(pass)),
             String(Double(period)),
             String(Double(offset)),
@@ -219,11 +243,14 @@ public final class SkeletonView: UIView {
         let travel = SkeletonView.sweepTravel(
             windowWidth: window.bounds.width,
             bandWidth: bandWidth,
-            originX: originX,
+            height: bounds.height,
+            reach: reach,
+            anchor: anchor,
             isRightToLeft: theme.isRightToLeft()
         )
 
         highlight.frame = CGRect(x: 0, y: 0, width: bandWidth, height: bounds.height)
+        layOutBand()
         highlight.add(
             ShimmerTimeline.sweepAnimation(
                 from: travel.from,
@@ -288,16 +315,50 @@ public final class SkeletonView: UIView {
         return max(windowWidth * 0.35, 80)
     }
 
+    /// The stripe's own width, which is the band's thickness measured square to its slant. Keeping
+    /// the gradient at that width makes the band cover `bandWidth` points of the block whatever the
+    /// block's height.
+    private var bandThickness: CGFloat {
+        bandWidth / sqrt(2)
+    }
+
+    /// The stripe's length along its slant: long enough to run past the block's top and bottom
+    /// corners with the fade still inside the gradient.
+    private func bandSpan(height: CGFloat) -> CGFloat {
+        (height + 2 * bandWidth) * sqrt(2)
+    }
+
+    /// The stripe's tilt from square: a quarter turn, mirrored for a trailing-to-leading sweep so
+    /// the band leans the way the pass runs.
+    private var slant: CGFloat {
+        let quarterTurn = CGFloat.pi / 4
+        return SkeletonTheme.current.isRightToLeft() ? -quarterTurn : quarterTurn
+    }
+
+    /// Centres the stripe on the block and tips it. Rotating about the centre keeps the band's
+    /// place on the block independent of its height, so stacked blocks slant alike.
+    private func layOutBand() {
+        let height = bounds.height
+        guard height > 0, bandWidth > 0 else { return }
+        band.bounds = CGRect(x: 0, y: 0, width: bandThickness, height: bandSpan(height: height))
+        band.position = CGPoint(x: bandWidth / 2, y: height / 2)
+        band.transform = CATransform3DMakeRotation(slant, 0, 0, 1)
+    }
+
     private func paintHighlight() {
         let colour = SkeletonTheme.current.highlight.resolvedColor(with: traitCollection)
-        highlight.colors = [
+        band.colors = [
             colour.withAlphaComponent(0).cgColor,
+            colour.withAlphaComponent(0.11).cgColor,
+            colour.withAlphaComponent(0.42).cgColor,
             colour.withAlphaComponent(0.9).cgColor,
+            colour.withAlphaComponent(0.42).cgColor,
+            colour.withAlphaComponent(0.11).cgColor,
             colour.withAlphaComponent(0).cgColor,
         ]
-        highlight.locations = [0, 0.5, 1]
-        highlight.startPoint = CGPoint(x: 0, y: 0.5)
-        highlight.endPoint = CGPoint(x: 1, y: 0.5)
+        band.locations = [0, 0.14, 0.3, 0.5, 0.7, 0.86, 1]
+        band.startPoint = CGPoint(x: 0, y: 0.5)
+        band.endPoint = CGPoint(x: 1, y: 0.5)
     }
 }
 

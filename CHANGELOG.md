@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.2.8
+
+- The highlight is a 45° stripe leaning the way the pass runs — a "/" from left to right, and the
+  same lean mirrored from right to left — instead of a flat band. Its ends run past the block as it
+  crosses, so a card, a photo and a line all read one continuous slash.
+- The stripe's falloff is a soft bell of seven stops instead of a single 0.9 peak, so the band has no
+  hard edge at either end.
+- The pass carries the extra horizontal extent the lean adds: the stripe is one line across the
+  component, covering the component's height, so the whole of it starts and finishes clear of the
+  window and the repeat stays invisible.
+- The stripe is a gradient layer of its own, tipped inside a container that does the sweep's
+  translation, so the tilt and the animation never share a transform.
+- A component's blocks draw the stripe as one line: a card's lines and photo share the slash rather
+  than each stepping its own band down the card.
+
 ## 1.2.7
 
 - Flush placeholder lines of different widths draw as one rectangle at the widest width they ask

@@ -51,20 +51,6 @@ enum ShimmerTimeline {
         return min(max(elapsed / pass, 0), 1)
     }
 
-    /// The band's leading edge in window coordinates for a given progress through a pass. Every
-    /// block on screen is at this place for the same progress, whatever its own origin or width,
-    /// so the whole screen is crossed at one speed by one band.
-    static func bandLeadingEdge(
-        windowWidth: CGFloat,
-        bandWidth: CGFloat,
-        isRightToLeft: Bool,
-        progress: Double
-    ) -> CGFloat {
-        let distance = windowWidth + bandWidth
-        let travelled = CGFloat(min(max(progress, 0), 1)) * distance
-        return isRightToLeft ? windowWidth - travelled : -bandWidth + travelled
-    }
-
     /// The sweep a block runs: a pass across the window at a constant speed, a hold outside the
     /// window while the rest of the wave crosses, and a repeat on the shared clock. Both ends of
     /// the pass sit clear of the window, so the repeat cannot be seen.

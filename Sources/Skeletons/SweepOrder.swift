@@ -55,6 +55,18 @@ enum SweepOrder {
         return place
     }
 
+    /// The piece `view` draws for: the nearest marked component, or the block itself when the
+    /// screen places blocks by hand. The blocks of one component share a phase, so they also share
+    /// one slanted band.
+    static func component(of view: SkeletonView) -> UIView {
+        var candidate: UIView? = view
+        while let current = candidate {
+            if current.skeletonOrdinal != nil { return current }
+            candidate = current.superview
+        }
+        return view
+    }
+
     private static func resolve(_ view: SkeletonView) -> Place {
         var candidate: UIView? = view
         while let current = candidate {

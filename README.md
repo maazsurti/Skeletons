@@ -66,11 +66,11 @@ iOS 17+, Swift 6 tools (Swift 5 language mode).
 In `Package.swift`:
 
 ```swift
-.package(url: "https://github.com/maazsurti/Skeletons.git", from: "1.2.7")
+.package(url: "https://github.com/maazsurti/Skeletons.git", from: "1.2.8")
 ```
 
 In Xcode: **File → Add Package Dependencies…**, paste the URL, and set the rule to *Up to Next Major*
-at 1.2.7. The product is **`Skeletons`**.
+at 1.2.8. The product is **`Skeletons`**.
 
 ## Quick start
 
@@ -261,10 +261,16 @@ which one is on screen.
 - **A cycle long enough for the whole wave.** One pass takes `shimmerDuration`; the screen repeats
   after a pass plus the time the wave needs to reach its last component — the stagger times the gaps
   between components. No two components of a screen share a phase, however long the screen is.
+- **A lean of 45°.** The highlight is a stripe tipped to a quarter turn, leaning the way the pass
+  runs — a "/" from left to right, mirrored from right to left. Every block of a component draws
+  that stripe on the same line, so a card's lines and its photo read one slash rather than a stepped
+  band per line; the stripe's ends run past each block as it crosses. Its falloff is a soft bell
+  rather than a single peak, so the edge of the band has no hard line.
 - **A seamless loop.** The band's travel is the window's, not each block's own edges, so every block
-  crosses the same distance at the same speed whatever its width or origin. The pass starts and ends
-  with the band clear of the window, so the repeat happens with nothing on screen, and a block that
-  scrolls carries its band with it rather than re-attaching it mid-pass.
+  is crossed by the same band whatever its width or origin. A leaning stripe also spans the
+  component's height, so the pass runs that much further to start and finish with the whole stripe
+  clear of the window; the repeat happens with nothing on screen, and a block that scrolls carries
+  its band with it rather than re-attaching it mid-pass.
 - **Right to left.** When `isRightToLeft` returns true the sweep enters from the trailing edge and the
   wave runs from the trailing edge across.
 - **Reduce Motion.** A gentle opacity pulse (0.55 ↔ 1) replaces the sweep, and the switcher swaps

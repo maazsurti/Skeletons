@@ -12,16 +12,29 @@ struct SweepLoopTests {
     private struct Shape {
         let windowWidth: CGFloat
         let blockWidth: CGFloat
+        let blockHeight: CGFloat
         let originX: CGFloat
     }
 
     private let shapes = [
-        Shape(windowWidth: 402, blockWidth: 340, originX: 20),
-        Shape(windowWidth: 402, blockWidth: 200, originX: 0),
-        Shape(windowWidth: 402, blockWidth: 120, originX: 282),
-        Shape(windowWidth: 402, blockWidth: 200, originX: -30),
-        Shape(windowWidth: 402, blockWidth: 520, originX: -40),
+        Shape(windowWidth: 402, blockWidth: 340, blockHeight: 120, originX: 20),
+        Shape(windowWidth: 402, blockWidth: 200, blockHeight: 14, originX: 0),
+        Shape(windowWidth: 402, blockWidth: 120, blockHeight: 40, originX: 282),
+        Shape(windowWidth: 402, blockWidth: 200, blockHeight: 64, originX: -30),
+        Shape(windowWidth: 402, blockWidth: 520, blockHeight: 210, originX: -40),
     ]
+
+    /// The horizontal span the band covers in the window at one point of the pass. A stripe leaning
+    /// 45° spans its own width and the block's height, half of that height past each end.
+    private func bandSpan(
+        at travel: CGFloat,
+        originX: CGFloat,
+        bandWidth: CGFloat,
+        height: CGFloat
+    ) -> ClosedRange<CGFloat> {
+        let low = travel + originX - height / 2
+        return low...(low + bandWidth + height)
+    }
 
     @Test func theTravelClearsTheWindowAtBothEnds() {
         let band: CGFloat = 140.7
@@ -30,23 +43,33 @@ struct SweepLoopTests {
                 let travel = SkeletonView.sweepTravel(
                     windowWidth: shape.windowWidth,
                     bandWidth: band,
-                    originX: shape.originX,
+                    height: shape.blockHeight,
+                    reach: shape.blockHeight,
+                    anchor: shape.originX,
                     isRightToLeft: isRightToLeft
                 )
                 let distance = abs(travel.to - travel.from)
-                #expect(abs(distance - (shape.windowWidth + band)) < 0.001)
+                #expect(abs(distance - (shape.windowWidth + band + shape.blockHeight)) < 0.001)
 
                 let edge = shape.windowWidth
-                let start = travel.from + shape.originX
-                let end = travel.to + shape.originX
-                #expect(start + band <= 0.001 || start >= edge - 0.001, "the band is on the window at the start")
-                #expect(end + band <= 0.001 || end >= edge - 0.001, "the band is on the window at the end")
+                let start = bandSpan(
+                    at: travel.from,
+                    originX: shape.originX,
+                    bandWidth: band,
+                    height: shape.blockHeight
+                )
+                let end = bandSpan(
+                    at: travel.to,
+                    originX: shape.originX,
+                    bandWidth: band,
+                    height: shape.blockHeight
+                )
                 if isRightToLeft {
-                    #expect(start >= edge - 0.001)
-                    #expect(end + band <= 0.001)
+                    #expect(start.lowerBound >= edge - 0.001, "the band is on the window at the start")
+                    #expect(end.upperBound <= 0.001, "the band is on the window at the end")
                 } else {
-                    #expect(start + band <= 0.001)
-                    #expect(end >= edge - 0.001)
+                    #expect(start.upperBound <= 0.001, "the band is on the window at the start")
+                    #expect(end.lowerBound >= edge - 0.001, "the band is on the window at the end")
                 }
             }
         }
@@ -56,11 +79,13 @@ struct SweepLoopTests {
         let travel = SkeletonView.sweepTravel(
             windowWidth: 402,
             bandWidth: 140,
-            originX: 20,
+            height: 40,
+            reach: 40,
+            anchor: 20,
             isRightToLeft: false
         )
-        #expect(travel.from == -160)
-        #expect(travel.to == 382)
+        #expect(travel.from == -180)
+        #expect(travel.to == 402)
     }
 
     @Test func thePassLastsTheThemedDuration() throws {
@@ -165,7 +190,7 @@ struct SweepLoopTests {
         #expect(sweepAfter === sweepBefore, "the sweep was re-attached when the block moved")
 
         let after = try bandPosition(block)
-        let step = (402 + 140.7) * (1.0 / 60.0) / 1.7 + 5
+        let step = (402 + 140.7 + 40) * (1.0 / 60.0) / 1.7 + 5
         #expect(abs((after - before) + 50) <= step, "the band moved \(after - before) pt while the block moved 50")
         #expect(abs(sweepAfter.beginTime - beginBefore) < 0.000_001)
     }
