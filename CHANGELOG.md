@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.4.2
+
+- `SkeletonContainerView.restartSweep()` is public, so a screen that finishes appearing or otherwise
+  reveals the skeleton late can start the wave from the leading edge when it settles.
+- `restartSweep()` clears the container's clock and each block's place, then resumes the wave from the
+  first component in stagger order.
+
 ## 1.4.1
 
 - Each `SkeletonContainerView` keeps its own sweep clock: the wave starts at the container's first

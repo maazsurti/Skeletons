@@ -353,7 +353,9 @@ which one is on screen.
 - **A wave that starts with its screen.** A container that returns to the window, comes back from
   hidden, is switched on again, or is revealed by `SkeletonSwitcher` starts its wave over from the
   leading edge. Blocks placed by hand share one clock per window, and the next screen starts at the
-  first place on a fresh clock once the last block of the one before stops.
+  first place on a fresh clock once the last block of the one before stops. A screen that finishes
+  appearing, or otherwise reveals the skeleton late, calls `restartSweep()` on its containers so the
+  wave starts when the screen settles.
 - **A cycle long enough for the whole wave.** One pass takes `shimmerDuration`, then the band waits
   off the window for `shimmerMinRest` (0.25 s by default) before it repeats; the screen repeats after
   the pass, that rest and the time the wave needs to reach its last component — the stagger times the
