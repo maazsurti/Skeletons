@@ -188,13 +188,17 @@ A view can state the same thing for itself, and `Skeletonized` uses the same rul
 tree:
 
 ```swift
-card.heading.skeletonMode(.static)
-card.banner.skeletonMode(.block)
-card.actionButton.skeletonMode(.ignored)
-
 let skeletonView = SkeletonLayout {
-    Skeletonized { OrderCardView(order: .sample) }
-    SkeletonRows(count: 3, spacing: 12, .listRow)
+    Skeletonized {
+        let card = OrderCardView(order: .sample)
+        card.heading.skeletonMode(.static)
+        card.banner.skeletonMode(.block)
+        card.actionButton.skeletonMode(.ignored)
+        return card
+    }
+    SkeletonRows(count: 3, spacing: 12) {
+        Skeletonized { OrderCardView(order: .sample) }
+    }
 }.makeView()
 ```
 

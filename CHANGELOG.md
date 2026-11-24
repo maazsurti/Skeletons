@@ -19,8 +19,10 @@
   their corner radius, including a radius their own layout gives them; a field keeps its chrome and
   shimmers one value line; a search field stays real; a read-only text view is one block and an
   editable one keeps its geometry without its text colour; chrome around more than one item is kept
-  and recursed, and a custom control holding several items follows the same rules; a separator under
-  2 pt stays real; visual effect views and scroll views are walked through.
+  and recursed, and a custom control holding several items follows the same rules; a multi-line
+  label, a text stack, a read-only text view and a plain button take half their font size as the
+  radius; a separator under 2 pt stays real; visual effect views and scroll views are walked
+  through.
 - A view with a kept descendant is never collapsed into one block, so a `keeping` or `.static` view
   inside a card, control or text stack stays real. A hidden or transparent view is skipped before its
   mode applies.
