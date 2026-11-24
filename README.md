@@ -50,6 +50,9 @@ Place `skeletonView` and `contentView` in the same frame, one over the other, an
 - **A shape in one declaration.** `SkeletonLayout` takes lines, blocks, photos, cards, rows and
   repeats; the theme supplies the spacing, radii and line heights. The same blocks can be placed by
   hand in a stack view instead.
+- **The real view's own geometry.** `skeletonized()` reads a view filled with sample data and stands
+  in for it: each leaf gets a block constrained to it, so the placeholder lands where the content
+  will.
 - **Fields keep their chrome.** `SkeletonField` and `SkeletonPickerRow` draw the real surface,
   border, height, padding, label, accessory and chevron; only the value area shimmers.
 - **Accessible by default.** The screen's skeleton reads as one VoiceOver "Loading" element; Reduce
@@ -66,11 +69,11 @@ iOS 17+, Swift 6 tools (Swift 5 language mode).
 In `Package.swift`:
 
 ```swift
-.package(url: "https://github.com/maazsurti/Skeletons.git", from: "1.2.8")
+.package(url: "https://github.com/maazsurti/Skeletons.git", from: "1.4.0")
 ```
 
 In Xcode: **File → Add Package Dependencies…**, paste the URL, and set the rule to *Up to Next Major*
-at 1.2.8. The product is **`Skeletons`**.
+at 1.4.0. The product is **`Skeletons`**.
 
 ## Quick start
 
@@ -174,6 +177,72 @@ height is the block's own assertion and always holds.
 `SkeletonContainerView` gives VoiceOver one "Loading" element in place of the individual blocks and
 takes its label from `loadingText`. Its `isShimmering` covers every block inside it.
 
+## Skeletonize the real view
+
+When the screen's layout already exists, hand it over filled with sample data and let the package
+read its geometry:
+
+```swift
+let skeletonView = profileView.skeletonized()
+```
+
+`skeletonized()` walks the view, hides each leaf that stands in for fetched content and inserts a
+`SkeletonView` constrained to that leaf, so every block takes the place the real view's Auto Layout
+gives it. Nothing is laid out at call time. The result is a `SkeletonContainerView`, ready for
+`SkeletonSwitcher`.
+
+The walk reads the tree in this order:
+
+- A label becomes its text line: the label's own width and line box, at half the point size for a
+  radius, aligned as the label is. A multi-line label becomes one block over its box.
+- A vertical stack wearing only labels, with no spacing, is one block: one shape, not a stack of bars.
+- An image view becomes a block at its corner radius.
+- A text field or text view keeps its chrome, loses its text and any placeholder, and shimmers one
+  value line.
+- Any other control becomes one block at its corner radius.
+- A separator under 2 pt stays real.
+- A view with a background, border or shadow keeps that chrome and its contents are skeletonized,
+  unless it holds one item or fewer or has both its width and its height fixed — then it is one block.
+- A visual effect view and a scroll view are walked through.
+- Any other container is walked through; a leaf that draws nothing is a spacer.
+
+Restrict, keep or drop parts of the tree:
+
+```swift
+let skeletonView = orderView.skeletonized(
+    only: [orderView.items],
+    keeping: [orderView.total],
+    ignoring: [orderView.badge]
+)
+```
+
+- `only` — skeletonize these views; everything else stays real.
+- `keeping` — these views stay real, in place.
+- `ignoring` — these views keep their space and draw nothing.
+
+A view can state the same thing for itself, and `Skeletonized` uses the same rules inside an element
+tree:
+
+```swift
+orderView.header.skeletonMode(.static)
+orderView.banner.skeletonMode(.block)
+retryButton.skeletonMode(.ignored)
+
+let skeletonView = SkeletonLayout {
+    Skeletonized { orderView }
+    SkeletonRows(count: 3, spacing: 12, .listRow)
+}.makeView()
+```
+
+- `.automatic` — the rules above.
+- `.block` — one block over the whole view, at the view's corner radius.
+- `.static` — the view stays real.
+- `.ignored` — the space is kept and nothing is drawn.
+
+The innermost stated mode wins, so a `.static` view still takes an `.automatic` descendant. An
+argument list beats a mode set on the same view. Only a view the caller keeps static receives a
+touch, so a template's tap gestures cannot fire on sample data and a kept control stays usable.
+
 ## Elements
 
 - `SkeletonLayout` — the root: a vertical arrangement, one `SkeletonContainerView`, one VoiceOver
@@ -197,6 +266,8 @@ takes its label from `loadingText`. Its `isShimmering` covers every block inside
   site.
 - `SkeletonSpacer()` — takes the spare width in a row.
 - `SkeletonReal(view)` — a real view (copy, a heading, a control) inside the shape.
+- `Skeletonized { view }` — a real view filled with sample data, skeletonized from its own layout;
+  the same as calling `skeletonized()` on it.
 - Presets: `.listRow`, `.cardRow`, `.priceColumn`, `.formField`, `.pickerRow`.
 - Modifiers on any element: `.width(_:)`, `.height(_:)`, `.widthFraction(_:)`, `.padding(_:)`,
   `.aspect(_:)`, `.hugging`. Lines, blocks and photos also take `.radius(_:)`.

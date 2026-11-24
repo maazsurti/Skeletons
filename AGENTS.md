@@ -31,10 +31,29 @@ skeleton in a host app. Follow them; they are what a reader sees.
   `leading: SkeletonReal(view)`. An accessory whose own content is fetched takes a skeleton element
   in the same place instead.
 
+## Skeletonize the real view first
+
+A screen's skeleton is its own real view, filled with sample data and skeletonized. Build the view as
+the loaded screen builds it, then call `skeletonized()` so every block takes the geometry the real
+Auto Layout gives it. Keep the screen from growing a second copy of its layout.
+
+```swift
+let skeletonView = orderView.skeletonized(keeping: [orderView.total])
+```
+
+- Restrict the walk with `only:` when one section reloads, `keeping:` for a control or total that
+  stays real, and `ignoring:` for a piece that keeps its space and shows nothing.
+- State a mode on a single view with `skeletonMode(_:)` — `.block` for a shape the rules read wrong,
+  `.static` to stay real, `.ignored` to draw nothing. The innermost stated mode wins.
+- Compose by hand, with `SkeletonLayout` and its elements, what the real view cannot express: a
+  state with no view in the tree, a list longer than the sample, a shape the rules cannot read.
+  `Skeletonized { view }` puts the automatic walk inside an element tree.
+
 ## Prefer the builder
 
-A skeleton is a shape, not a pile of blocks. Declare it with `SkeletonLayout` and its elements; the
-theme supplies spacing, radii and line heights, and a call only names what differs.
+Where a skeleton cannot come from the real view, a skeleton is a shape, not a pile of blocks. Declare
+it with `SkeletonLayout` and its elements; the theme supplies spacing, radii and line heights, and a
+call only names what differs.
 
 ```swift
 SkeletonLayout(spacing: 14) {
@@ -96,7 +115,8 @@ moves.
 
 ## Working in this repo
 
-- `Sources/Skeletons/` — `SkeletonView` (blocks), `SkeletonField` (fields and pickers, their chrome and
+- `Sources/Skeletons/` — `SkeletonView` (blocks), `Skeletonized` (the automatic walk over a real
+  view), `SkeletonField` (fields and pickers, their chrome and
   their value line), `SkeletonContainerView` (VoiceOver's single "Loading" element), `SkeletonSwitcher`
   and `SkeletonScheduler` (150 / 300 ms and the 200 ms dissolve), `SkeletonTheme`, `ShimmerTimeline`.
 - `Tests/SkeletonsTests/` — `xcodebuild test -scheme Skeletons -destination 'platform=iOS Simulator,id=<udid>'`

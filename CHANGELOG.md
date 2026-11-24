@@ -1,5 +1,28 @@
 # Changelog
 
+## 1.4.0
+
+- `skeletonized(only:keeping:ignoring:)` builds a skeleton from the real view: each leaf that stands
+  in for fetched content is hidden and a block is constrained to it, so the placeholder takes the
+  view's own Auto Layout instead of a second copy of the screen. `only` skeletonizes the named views
+  and leaves the rest real, `keeping` leaves views real in place, and `ignoring` keeps their space
+  and draws nothing.
+- `SkeletonMode` states a view's own mode: `.automatic` for the rules, `.block` for one block over
+  the view at its corner radius, `.static` to stay real, `.ignored` to keep the space and draw
+  nothing. `UIView.skeletonMode(_:)` sets it; the innermost stated mode wins and an argument list
+  beats a mode on the same view.
+- `Skeletonized { view }` runs the same rules inside `SkeletonLayout` and the other elements,
+  returning the prepared view rather than a nested container. `SkeletonRows` builds a fresh view per
+  row.
+- The walk: labels become their own line at the font's radius, aligned as the label is; a vertical
+  stack of labels with no spacing is one block; image views and controls become blocks at their
+  corner radius; a field keeps its chrome and shimmers one value line; chrome around more than one
+  item is kept and recursed; a separator under 2 pt stays real; visual effect views and scroll views
+  are walked through.
+- Only a view the caller keeps static receives a touch, so a template's tap gestures never fire on
+  sample data.
+- The sweep marks the top-level rows and blocks, so a row and its contents cross as one component.
+
 ## 1.3.0
 
 - The sweep takes a rest off the window between repeats, set by `SkeletonTheme.shimmerMinRest`:
