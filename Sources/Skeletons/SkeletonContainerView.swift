@@ -46,8 +46,9 @@ public final class SkeletonContainerView: UIView {
     }
 
     /// Starts the wave again from the container's leading edge: the clock is cleared and every block
-    /// inside takes its place again.
-    func restartSweep() {
+    /// inside takes its place again. Call it from a screen that finishes appearing, or that otherwise
+    /// reveals the skeleton late, so the wave starts when the screen settles.
+    public func restartSweep() {
         skeletonSweepStart = nil
         clearPlaces(in: self)
     }
