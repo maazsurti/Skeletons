@@ -15,13 +15,23 @@
   returning the prepared view rather than a nested container. `SkeletonRows` builds a fresh view per
   row.
 - The walk: labels become their own line at the font's radius, aligned as the label is; a vertical
-  stack of labels with no spacing is one block; image views and controls become blocks at their
-  corner radius; a field keeps its chrome and shimmers one value line; chrome around more than one
-  item is kept and recursed; a separator under 2 pt stays real; visual effect views and scroll views
-  are walked through.
-- Only a view the caller keeps static receives a touch, so a template's tap gestures never fire on
-  sample data.
-- The sweep marks the top-level rows and blocks, so a row and its contents cross as one component.
+  stack of labels with no spacing is one block; image views, buttons and switches become blocks at
+  their corner radius, including a radius their own layout gives them; a field keeps its chrome and
+  shimmers one value line; a search field stays real; a read-only text view is one block and an
+  editable one keeps its geometry without its text colour; chrome around more than one item is kept
+  and recursed, and a custom control holding several items follows the same rules; a separator under
+  2 pt stays real; visual effect views and scroll views are walked through.
+- A view with a kept descendant is never collapsed into one block, so a `keeping` or `.static` view
+  inside a card, control or text stack stays real. A hidden or transparent view is skipped before its
+  mode applies.
+- The walk classifies a class by the bundle it comes from, so an app's own view is walked and only a
+  private UIKit class is left alone.
+- Touches follow the nearest decided view: only a view the caller keeps static takes a touch, and
+  gestures are stripped from the automatic ones, so a template's tap gestures never fire on sample
+  data.
+- The sweep starts at the wrapper: a card is one component, and a plain container recurses into its
+  children when it holds one child, a vertical stack, a scroll view or a card further down;
+  otherwise the container is the component.
 
 ## 1.3.0
 

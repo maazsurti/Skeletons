@@ -33,26 +33,38 @@ skeleton in a host app. Follow them; they are what a reader sees.
 
 ## Skeletonize the real view first
 
-A screen's skeleton is its own real view, filled with sample data and skeletonized. Build the view as
-the loaded screen builds it, then call `skeletonized()` so every block takes the geometry the real
-Auto Layout gives it. Keep the screen from growing a second copy of its layout.
+Every skeleton is the screen's own real view, filled with sample data and skeletonized: call
+`skeletonized()`, or `Skeletonized { … }` inside an element tree. Reach for a custom skeleton only
+when the real view cannot express the shape — no real view exists to fill with sample data, or the
+rules still read a shape wrong after `skeletonMode`, `only`, `keeping` and `ignoring`. Convenience or
+habit is not a reason.
+
+Build the view as the loaded screen builds it, then skeletonize it, so every block takes the geometry
+the real Auto Layout gives it. Keep the screen from growing a second copy of its layout.
 
 ```swift
-let skeletonView = orderView.skeletonized(keeping: [orderView.total])
+let card = OrderCardView(order: .sample)
+let skeletonView = card.skeletonized(keeping: [card.heading, card.actionButton])
 ```
 
-- Restrict the walk with `only:` when one section reloads, `keeping:` for a control or total that
-  stays real, and `ignoring:` for a piece that keeps its space and shows nothing.
+`skeletonized()` takes the view into the skeleton, reparents it and alters it. Build a throwaway
+template and pass that; never pass the live view.
+
+- Labels and buttons are fetched content as far as the walk knows: without a list they become blocks.
+  Keep the screen's own copy — titles, headings, field labels, chips, action buttons — with
+  `keeping:` or `.static`.
+- Never keep a value the response fills. A kept total shows sample money.
+- Restrict the walk with `only:` when one section reloads, `keeping:` for the screen's own copy and
+  controls, and `ignoring:` for a piece that keeps its space and shows nothing.
 - State a mode on a single view with `skeletonMode(_:)` — `.block` for a shape the rules read wrong,
   `.static` to stay real, `.ignored` to draw nothing. The innermost stated mode wins.
-- Compose by hand, with `SkeletonLayout` and its elements, what the real view cannot express: a
-  state with no view in the tree, a list longer than the sample, a shape the rules cannot read.
-  `Skeletonized { view }` puts the automatic walk inside an element tree.
+- `Skeletonized { … }` puts the automatic walk inside an element tree.
 
-## Prefer the builder
+## Compose a custom skeleton
 
-Where a skeleton cannot come from the real view, a skeleton is a shape, not a pile of blocks. Declare
-it with `SkeletonLayout` and its elements; the theme supplies spacing, radii and line heights, and a
+This is the fallback, for a skeleton the real view cannot express: a state with no view in the tree,
+or a shape the rules still read wrong. A custom skeleton is a shape, not a pile of blocks. Declare it
+with `SkeletonLayout` and its elements; the theme supplies spacing, radii and line heights, and a
 call only names what differs.
 
 ```swift
@@ -78,8 +90,8 @@ element takes `.width`, `.height`, `.widthFraction`, `.padding` and `.hugging`, 
 holds. Lines with no spacing and no padding between them fuse into one rectangle at the widest
 width they ask for, so pass `spacing` when they should read as separate bars. Use `.listRow`,
 `.cardRow`, `.priceColumn`, `.formField` and `.pickerRow` for the rows and fields the app repeats;
-add a preset only when a screen uses it. Reach for a raw `SkeletonView` only where a real view's
-layout cannot be declared.
+add a preset only when a screen uses it. Blocks placed by hand come last, after the builder: reach
+for a raw `SkeletonView` only where neither the real view's layout nor an element declares the shape.
 
 ## When a skeleton appears
 

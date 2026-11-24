@@ -33,26 +33,24 @@ for a wait that blocks the whole app, where a spinner states the wait more direc
 ```swift
 import Skeletons
 
-let skeletonView = SkeletonLayout {
-    SkeletonLine(.title)
-    SkeletonRows(count: 5, spacing: 12, .listRow)
-}.makeView()
+let skeletonView = OrderCardView(order: .sample).skeletonized()
 
 let switcher = SkeletonSwitcher(skeleton: skeletonView, content: contentView)
 switcher.startLoading()
 ```
 
 Place `skeletonView` and `contentView` in the same frame, one over the other, and call
-`switcher.showContent()` when the response arrives.
+`switcher.showContent()` when the response arrives. The view passed in is a throwaway template:
+`skeletonized()` takes it into the skeleton and alters it.
 
 ## What you get
 
-- **A shape in one declaration.** `SkeletonLayout` takes lines, blocks, photos, cards, rows and
-  repeats; the theme supplies the spacing, radii and line heights. The same blocks can be placed by
-  hand in a stack view instead.
 - **The real view's own geometry.** `skeletonized()` reads a view filled with sample data and stands
   in for it: each leaf gets a block constrained to it, so the placeholder lands where the content
   will.
+- **A custom shape when the view cannot give one.** `SkeletonLayout` takes lines, blocks, photos,
+  cards, rows and repeats; the theme supplies the spacing, radii and line heights. The same blocks
+  can be placed by hand in a stack view.
 - **Fields keep their chrome.** `SkeletonField` and `SkeletonPickerRow` draw the real surface,
   border, height, padding, label, accessory and chevron; only the value area shimmers.
 - **Accessible by default.** The screen's skeleton reads as one VoiceOver "Loading" element; Reduce
@@ -77,17 +75,14 @@ at 1.4.0. The product is **`Skeletons`**.
 
 ## Quick start
 
-Declare the shape, build it, and hand the skeleton and the content to a switcher. The theme is
-optional: every value has a default, and `SkeletonTheme.current` is read when a skeleton is built.
+Build the view as the loaded screen builds it, fill it with sample data, and skeletonize it. The
+theme is optional: every value has a default, and `SkeletonTheme.current` is read when a skeleton is
+built.
 
 ```swift
 import Skeletons
 
-let skeleton = SkeletonLayout {
-    SkeletonLine(.title)
-    SkeletonRows(count: 5, spacing: 12, .listRow)
-}
-let skeletonView = skeleton.makeView()
+let skeletonView = OrderCardView(order: .sample).skeletonized()
 
 // Place skeletonView and contentView in the same frame, one over the other.
 let switcher = SkeletonSwitcher(skeleton: skeletonView, content: contentView)
@@ -101,6 +96,15 @@ service.fetch { result in
 
 `skeletonView` is a `SkeletonContainerView`, so the blocks inside it are hidden from VoiceOver and
 the screen reads a single "Loading".
+
+When no real view expresses the shape, declare it instead:
+
+```swift
+let skeletonView = SkeletonLayout {
+    SkeletonLine(.title)
+    SkeletonRows(count: 5, spacing: 12, .listRow)
+}.makeView()
+```
 
 ## Set up
 
@@ -129,9 +133,85 @@ A loading field takes `fieldSurface`, `fieldBorder`, `fieldText`, `fieldTextFont
 `fieldRadius` and `fieldPadding` from the same theme. Point them at the app's field metrics so the
 field sits where the real field sits.
 
-## Compose a skeleton
+## Skeletonize the real view
 
-Declare the shape. Spacing, radii and line heights come from the theme:
+A screen's skeleton is its own real view, filled with sample data. Build the view as the loaded
+screen builds it and skeletonize it:
+
+```swift
+let skeletonView = OrderCardView(order: .sample).skeletonized()
+```
+
+`skeletonized()` reparents the view into the skeleton and alters it. Build a throwaway template and
+pass that, never the live view.
+
+`skeletonized()` walks the template, hides each leaf that stands in for fetched content and inserts
+a `SkeletonView` constrained to that leaf, so every block takes the place the real view's Auto Layout
+gives it. Nothing is laid out at call time. The result is a `SkeletonContainerView`, ready for
+`SkeletonSwitcher`.
+
+The walk reads the tree in this order:
+
+- A label becomes its text line: the label's own width and line box, at half the point size for a
+  radius, aligned as the label is. A multi-line label becomes one block over its box.
+- A vertical stack wearing only labels, with no spacing, is one block: one shape, not a stack of bars.
+- An image view becomes a block at its corner radius, including a radius its own layout gives it.
+- A text field keeps its chrome, loses its text and placeholder, and shimmers one value line. A
+  search field stays real. An editable text view keeps its geometry and loses its text colour; a
+  read-only one is one block.
+- A button, switch or slider becomes one block at its corner radius. A custom control holding more
+  than one item follows the chrome rules below instead.
+- A separator under 2 pt stays real.
+- A view with a background, border or shadow keeps that chrome and its contents are skeletonized,
+  unless it holds one item or fewer or has both its width and its height fixed — then it is one block.
+- A visual effect view and a scroll view are walked through.
+- Any other container is walked through; a leaf that draws nothing is a spacer.
+
+Labels and buttons are fetched content as far as the walk knows, so they become blocks. Keep the
+screen's own copy — titles, headings, field labels, chips, action buttons — with `keeping:` or
+`.static`, and never keep a value the response fills: the sample money would stay on screen.
+
+```swift
+let card = OrderCardView(order: .sample)
+let skeletonView = card.skeletonized(
+    only: [card.sections],
+    keeping: [card.heading, card.actionButton],
+    ignoring: [card.badge]
+)
+```
+
+- `only` — skeletonize these views; everything else stays real.
+- `keeping` — these views stay real, in place.
+- `ignoring` — these views keep their space and draw nothing.
+
+A view can state the same thing for itself, and `Skeletonized` uses the same rules inside an element
+tree:
+
+```swift
+card.heading.skeletonMode(.static)
+card.banner.skeletonMode(.block)
+card.actionButton.skeletonMode(.ignored)
+
+let skeletonView = SkeletonLayout {
+    Skeletonized { OrderCardView(order: .sample) }
+    SkeletonRows(count: 3, spacing: 12, .listRow)
+}.makeView()
+```
+
+- `.automatic` — the rules above.
+- `.block` — one block over the whole view, at the view's corner radius.
+- `.static` — the view stays real.
+- `.ignored` — the space is kept and nothing is drawn.
+
+The innermost stated mode wins, so a `.static` view still takes an `.automatic` descendant. An
+argument list beats a mode set on the same view. Only a view the caller keeps static receives a
+touch, so a template's tap gestures cannot fire on sample data and a kept control stays usable.
+
+## Compose a custom skeleton
+
+This is the fallback: reach for it when no real view exists to fill with sample data, or when the
+rules still read the shape wrong after `skeletonMode`, `only`, `keeping` and `ignoring`. Declare the
+shape. Spacing, radii and line heights come from the theme:
 
 ```swift
 let skeleton = SkeletonLayout {
@@ -177,76 +257,10 @@ height is the block's own assertion and always holds.
 `SkeletonContainerView` gives VoiceOver one "Loading" element in place of the individual blocks and
 takes its label from `loadingText`. Its `isShimmering` covers every block inside it.
 
-## Skeletonize the real view
-
-When the screen's layout already exists, hand it over filled with sample data and let the package
-read its geometry:
-
-```swift
-let skeletonView = profileView.skeletonized()
-```
-
-`skeletonized()` walks the view, hides each leaf that stands in for fetched content and inserts a
-`SkeletonView` constrained to that leaf, so every block takes the place the real view's Auto Layout
-gives it. Nothing is laid out at call time. The result is a `SkeletonContainerView`, ready for
-`SkeletonSwitcher`.
-
-The walk reads the tree in this order:
-
-- A label becomes its text line: the label's own width and line box, at half the point size for a
-  radius, aligned as the label is. A multi-line label becomes one block over its box.
-- A vertical stack wearing only labels, with no spacing, is one block: one shape, not a stack of bars.
-- An image view becomes a block at its corner radius.
-- A text field or text view keeps its chrome, loses its text and any placeholder, and shimmers one
-  value line.
-- Any other control becomes one block at its corner radius.
-- A separator under 2 pt stays real.
-- A view with a background, border or shadow keeps that chrome and its contents are skeletonized,
-  unless it holds one item or fewer or has both its width and its height fixed — then it is one block.
-- A visual effect view and a scroll view are walked through.
-- Any other container is walked through; a leaf that draws nothing is a spacer.
-
-Restrict, keep or drop parts of the tree:
-
-```swift
-let skeletonView = orderView.skeletonized(
-    only: [orderView.items],
-    keeping: [orderView.total],
-    ignoring: [orderView.badge]
-)
-```
-
-- `only` — skeletonize these views; everything else stays real.
-- `keeping` — these views stay real, in place.
-- `ignoring` — these views keep their space and draw nothing.
-
-A view can state the same thing for itself, and `Skeletonized` uses the same rules inside an element
-tree:
-
-```swift
-orderView.header.skeletonMode(.static)
-orderView.banner.skeletonMode(.block)
-retryButton.skeletonMode(.ignored)
-
-let skeletonView = SkeletonLayout {
-    Skeletonized { orderView }
-    SkeletonRows(count: 3, spacing: 12, .listRow)
-}.makeView()
-```
-
-- `.automatic` — the rules above.
-- `.block` — one block over the whole view, at the view's corner radius.
-- `.static` — the view stays real.
-- `.ignored` — the space is kept and nothing is drawn.
-
-The innermost stated mode wins, so a `.static` view still takes an `.automatic` descendant. An
-argument list beats a mode set on the same view. Only a view the caller keeps static receives a
-touch, so a template's tap gestures cannot fire on sample data and a kept control stays usable.
-
 ## Elements
 
-- `SkeletonLayout` — the root: a vertical arrangement, one `SkeletonContainerView`, one VoiceOver
-  "Loading". Takes `spacing`, `padding` and `alignment`.
+- `SkeletonLayout` — the root of a custom skeleton: a vertical arrangement, one
+  `SkeletonContainerView`, one VoiceOver "Loading". Takes `spacing`, `padding` and `alignment`.
 - `SkeletonColumn` / `SkeletonRow` — vertical and horizontal stacks, with `spacing`, `padding` and
   `alignment`; columns lead by default, rows center. A row's height is its tallest element and a
   row never stretches a child vertically, so a short copy column beside a tall photo lays out.
