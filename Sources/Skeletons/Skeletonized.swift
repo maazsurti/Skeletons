@@ -123,7 +123,8 @@ enum Skeletonizer {
         }
 
         if let stack = view as? UIStackView, isTextStack(stack) {
-            collapse(stack, lists: lists)
+            let first = stack.arrangedSubviews.first as? UILabel
+            collapse(stack, lists: lists, textRadius: first.map { $0.font.pointSize / 2 })
             return
         }
 
@@ -144,13 +145,14 @@ enum Skeletonizer {
                 text.textColor = .clear
                 shimmerValue(in: text, font: text.font)
             } else {
-                collapse(text, lists: lists)
+                let size = text.font?.pointSize ?? SkeletonTheme.current.fieldTextFont.pointSize
+                collapse(text, lists: lists, textRadius: size / 2)
             }
             return
         }
 
         if let control = view as? UIControl, !isTappableCard(control) {
-            collapse(control, lists: lists)
+            collapse(control, lists: lists, textRadius: textRadius(of: control))
             return
         }
 
@@ -186,13 +188,13 @@ enum Skeletonizer {
         descend(view, lists: lists, inherited: .automatic)
     }
 
-    private static func collapse(_ view: UIView, lists: Lists) {
+    private static func collapse(_ view: UIView, lists: Lists, textRadius: CGFloat? = nil) {
         guard !holdsKeptView(view, lists: lists) else {
             descend(view, lists: lists, inherited: .automatic)
             return
         }
         view.alpha = 0
-        overlay(view)
+        overlay(view, textRadius: textRadius)
     }
 
     private static func holdsKeptView(_ view: UIView, lists: Lists) -> Bool {
@@ -214,7 +216,7 @@ enum Skeletonizer {
         }
 
         guard label.numberOfLines == 1 else {
-            collapse(label, lists: lists)
+            collapse(label, lists: lists, textRadius: label.font.pointSize / 2)
             return
         }
 
@@ -258,14 +260,15 @@ enum Skeletonizer {
         }
     }
 
-    @discardableResult
-    private static func overlay(_ view: UIView, radius: CGFloat? = nil, corners: CACornerMask? = nil) -> SkeletonView {
-        let block = SkeletonView(
-            cornerRadius: radius ?? view.layer.cornerRadius,
-            corners: corners ?? view.layer.maskedCorners
-        )
-        block.cornerSource = view
-        guard let host = view.superview else { return block }
+    private static func overlay(_ view: UIView, textRadius: CGFloat? = nil) {
+        let block: SkeletonView
+        if let textRadius {
+            block = SkeletonView(cornerRadius: textRadius)
+        } else {
+            block = SkeletonView(cornerRadius: view.layer.cornerRadius, corners: view.layer.maskedCorners)
+            block.cornerSource = view
+        }
+        guard let host = view.superview else { return }
         block.translatesAutoresizingMaskIntoConstraints = false
         host.insertSubview(block, aboveSubview: view)
         NSLayoutConstraint.activate([
@@ -274,7 +277,6 @@ enum Skeletonizer {
             block.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             block.bottomAnchor.constraint(equalTo: view.bottomAnchor),
         ])
-        return block
     }
 
     private static func shimmerValue(in field: UIView, font: UIFont?) {
@@ -304,6 +306,14 @@ enum Skeletonizer {
             let spacing = stack.customSpacing(after: arranged)
             return spacing != 0 && spacing != CGFloat(Float.greatestFiniteMagnitude)
         }
+    }
+
+    private static func textRadius(of control: UIControl) -> CGFloat? {
+        guard let button = control as? UIButton, button.layer.cornerRadius == 0, !hasChrome(button) else {
+            return nil
+        }
+        let size = button.titleLabel?.font.pointSize ?? SkeletonTheme.current.fieldTextFont.pointSize
+        return size / 2
     }
 
     private static func isTappableCard(_ control: UIControl) -> Bool {
@@ -362,7 +372,7 @@ enum Skeletonizer {
     private static func contentLeafCount(_ view: UIView) -> Int {
         if view.isHidden || view.alpha == 0 { return 0 }
         if view is SkeletonView { return 0 }
-        if view is UILabel || view is UIImageView || view is UIControl { return 1 }
+        if view is UILabel || view is UIImageView || view is UIControl || view is UITextView { return 1 }
         if let effect = view as? UIVisualEffectView { return contentLeafCount(effect.contentView) }
         if view.subviews.isEmpty { return isDrawn(view) ? 1 : 0 }
         return contentsLeafCount(view)
@@ -415,7 +425,7 @@ enum Skeletonizer {
     }
 
     private static func containsCard(_ view: UIView) -> Bool {
-        if isCard(view) { return true }
+        if isCard(view) && containsBlock(view) { return true }
         return view.subviews.contains(where: containsCard)
     }
 
