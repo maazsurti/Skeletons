@@ -18,6 +18,8 @@ enum SweepOrder {
         let ordinal: Int
         /// How many components the screen's wave crosses.
         let count: Int
+        /// The instant the screen's wave starts.
+        let start: CFTimeInterval
     }
 
     // MARK: - Marking
@@ -71,48 +73,86 @@ enum SweepOrder {
         var candidate: UIView? = view
         while let current = candidate {
             if let ordinal = current.skeletonOrdinal {
-                return Place(ordinal: ordinal, count: count(above: current))
+                let container = container(above: current)
+                return Place(
+                    ordinal: ordinal,
+                    count: max(container?.skeletonComponentCount ?? 1, 1),
+                    start: start(of: container)
+                )
             }
             candidate = current.superview
         }
         return loose(view)
     }
 
-    /// The number of components in the screen a component sits in.
-    private static func count(above component: UIView) -> Int {
+    /// The view that states how many components the screen a component sits in sweeps.
+    private static func container(above component: UIView) -> UIView? {
         var candidate: UIView? = component
         while let current = candidate {
-            if let count = current.skeletonComponentCount {
-                return max(count, 1)
-            }
+            if current.skeletonComponentCount != nil { return current }
             candidate = current.superview
         }
-        return 1
+        return nil
+    }
+
+    /// The instant a container's wave starts, set by the first block that asks while the container
+    /// has none, so every block in it shares one start.
+    private static func start(of container: UIView?) -> CFTimeInterval {
+        guard let container else { return CACurrentMediaTime() }
+        if let start = container.skeletonSweepStart { return start }
+        let start = CACurrentMediaTime()
+        container.skeletonSweepStart = start
+        return start
     }
 
     // MARK: - Blocks placed by hand
 
-    /// A block whose screen has no container takes the next place in its window, once, in reading
-    /// order, so its phase stays put while it is on screen.
+    /// A block whose screen has no container takes the next place in its window's group, once, in
+    /// reading order, so its phase stays put while it is on screen.
     private static func loose(_ view: SkeletonView) -> Place {
-        guard let window = view.window else { return Place(ordinal: 0, count: 1) }
-        let ledger = looseByWindow.object(forKey: window) ?? {
-            let ledger = NSMutableArray()
-            looseByWindow.setObject(ledger, forKey: window)
-            return ledger
-        }()
-        let existing = ledger.index(of: view)
-        if existing != NSNotFound {
-            return Place(ordinal: existing, count: max(ledger.count, 1))
+        guard let window = view.window else {
+            return Place(ordinal: 0, count: 1, start: CACurrentMediaTime())
         }
-        let index = insertionIndex(of: view, in: ledger)
-        ledger.insert(view, at: index)
-        for later in ledger.dropFirst(index + 1) {
+        let group = group(for: window)
+        view.looseGroup = group
+        let start = group.start ?? CACurrentMediaTime()
+        group.start = start
+        let existing = group.ledger.index(of: view)
+        if existing != NSNotFound {
+            return Place(ordinal: existing, count: max(group.ledger.count, 1), start: start)
+        }
+        let index = insertionIndex(of: view, in: group.ledger)
+        group.ledger.insert(view, at: index)
+        for later in group.ledger.dropFirst(index + 1) {
             guard let block = later as? SkeletonView else { continue }
             block.sweepPlace = nil
             block.rephase()
         }
-        return Place(ordinal: index, count: max(ledger.count, 1))
+        return Place(ordinal: index, count: max(group.ledger.count, 1), start: start)
+    }
+
+    /// Takes `view` out of its window's group once it stops, and drops the group with its clock when
+    /// no block left in it is still sweeping, so the next screen starts at the first place on a
+    /// fresh start.
+    static func leftTheWave(_ view: SkeletonView) {
+        guard let group = view.looseGroup, group.ledger.index(of: view) != NSNotFound else {
+            return
+        }
+        group.ledger.remove(view)
+        view.looseGroup = nil
+        guard !group.ledger.contains(where: { ($0 as? SkeletonView)?.isSweeping == true }) else {
+            return
+        }
+        if let window = group.window { looseByWindow.removeObject(forKey: window) }
+        group.ledger.removeAllObjects()
+    }
+
+    private static func group(for window: UIWindow) -> LooseSweepGroup {
+        if let group = looseByWindow.object(forKey: window) { return group }
+        let group = LooseSweepGroup()
+        group.window = window
+        looseByWindow.setObject(group, forKey: window)
+        return group
     }
 
     private static func insertionIndex(of view: SkeletonView, in ledger: NSMutableArray) -> Int {
@@ -129,7 +169,7 @@ enum SweepOrder {
         return ledger.count
     }
 
-    private static let looseByWindow = NSMapTable<UIWindow, NSMutableArray>(
+    private static let looseByWindow = NSMapTable<UIWindow, LooseSweepGroup>(
         keyOptions: .weakMemory,
         valueOptions: .strongMemory
     )
@@ -160,6 +200,13 @@ enum SweepOrder {
 
 // MARK: - Storage on the view tree
 
+/// The blocks one window places by hand, and the instant their wave starts.
+final class LooseSweepGroup {
+    let ledger = NSMutableArray()
+    weak var window: UIWindow?
+    var start: CFTimeInterval?
+}
+
 extension UIView {
 
     /// Whether this view is one component of its screen.
@@ -180,6 +227,12 @@ extension UIView {
         set { skeletonComponentCountBox = newValue.map { NSNumber(value: $0) } }
     }
 
+    /// The instant the wave of the screen inside this container starts.
+    var skeletonSweepStart: CFTimeInterval? {
+        get { skeletonSweepStartBox?.doubleValue }
+        set { skeletonSweepStartBox = newValue.map { NSNumber(value: $0) } }
+    }
+
     private var skeletonComponentRootBox: NSNumber? {
         get { objc_getAssociatedObject(self, &SweepAssociation.componentRoot) as? NSNumber }
         set { objc_setAssociatedObject(self, &SweepAssociation.componentRoot, newValue, .OBJC_ASSOCIATION_RETAIN_NONATOMIC) }
@@ -194,10 +247,16 @@ extension UIView {
         get { objc_getAssociatedObject(self, &SweepAssociation.count) as? NSNumber }
         set { objc_setAssociatedObject(self, &SweepAssociation.count, newValue, .OBJC_ASSOCIATION_RETAIN_NONATOMIC) }
     }
+
+    private var skeletonSweepStartBox: NSNumber? {
+        get { objc_getAssociatedObject(self, &SweepAssociation.sweepStart) as? NSNumber }
+        set { objc_setAssociatedObject(self, &SweepAssociation.sweepStart, newValue, .OBJC_ASSOCIATION_RETAIN_NONATOMIC) }
+    }
 }
 
 private enum SweepAssociation {
     nonisolated(unsafe) static var componentRoot: UInt8 = 0
     nonisolated(unsafe) static var ordinal: UInt8 = 0
     nonisolated(unsafe) static var count: UInt8 = 0
+    nonisolated(unsafe) static var sweepStart: UInt8 = 0
 }

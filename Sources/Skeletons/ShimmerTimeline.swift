@@ -1,14 +1,11 @@
 import QuartzCore
 import UIKit
 
-/// The shared sweep clock: every block on every screen reads the same time, so the band's place on
-/// a block is a function of the clock and the block's component, never of when the block happened
-/// to join or of the last time its animation was attached.
+/// The sweep's clock: a screen states the instant its wave starts, and every block on it reads that
+/// start plus its component's place, so the band's position depends on when the screen came on and
+/// never on the last time its animation was attached.
 @MainActor
 enum ShimmerTimeline {
-
-    /// The instant the sweep counts from.
-    private static let epoch = CACurrentMediaTime()
 
     /// The delay a component at `ordinal` takes behind the topmost component on its screen. It is
     /// cumulative and never reduced modulo the pass, so no two components of a screen can land in
@@ -36,35 +33,32 @@ enum ShimmerTimeline {
         pass + max(rest, 0) + spread(components: components, stagger: stagger)
     }
 
-    /// The start of the pass `offset` is in, at or before now, on the shared clock. Adding an
-    /// animation again therefore lands exactly where the old one was.
-    static func startTime(period: TimeInterval, offset: TimeInterval = 0) -> CFTimeInterval {
-        guard period > 0 else { return CACurrentMediaTime() }
-        return CACurrentMediaTime() - cycleElapsed(period: period, offset: offset)
-    }
-
-    /// How far through its pass a component at `offset` is at `time`: 0 at the leading edge, 1 once
-    /// the band has left the window, and pinned at 1 while the wave works down the screen.
+    /// How far through its pass a component at `offset` is at `time`: 0 until its turn comes and
+    /// again at the leading edge, 1 once the band has left the window, and pinned at 1 while the
+    /// wave works down the screen.
     static func passProgress(
         at time: CFTimeInterval,
         pass: TimeInterval,
         period: TimeInterval,
-        offset: TimeInterval = 0
+        offset: TimeInterval = 0,
+        start: CFTimeInterval = 0
     ) -> Double {
         guard pass > 0, period > 0 else { return 0 }
-        let elapsed = cycleElapsed(period: period, offset: offset, at: time)
+        let elapsed = cycleElapsed(period: period, offset: offset, start: start, at: time)
         return min(max(elapsed / pass, 0), 1)
     }
 
     /// The sweep a block runs: a pass across the window at a constant speed, a hold outside the
-    /// window for the rest and the time the rest of the wave crosses, and a repeat on the shared
-    /// clock. Both ends of the pass sit clear of the window, so the repeat cannot be seen.
+    /// window for the rest and the time the rest of the wave crosses, and a repeat from the screen's
+    /// `start`. Both ends of the pass sit clear of the window, so the repeat cannot be seen, and a
+    /// component whose turn has not come holds at `from` off the window.
     static func sweepAnimation(
         from: CGFloat,
         to: CGFloat,
         pass: TimeInterval,
         period: TimeInterval,
-        offset: TimeInterval
+        offset: TimeInterval,
+        start: CFTimeInterval
     ) -> CAAnimation {
         let sweep = CAKeyframeAnimation(keyPath: "transform.translation.x")
         let passFraction = period > 0 ? min(pass / period, 1) : 1
@@ -79,18 +73,21 @@ enum ShimmerTimeline {
         sweep.repeatCount = .infinity
         sweep.calculationMode = .linear
         sweep.isRemovedOnCompletion = false
-        sweep.beginTime = startTime(period: period, offset: offset)
+        sweep.beginTime = start + offset
+        sweep.fillMode = .backwards
         return sweep
     }
 
-    /// How far into the cycle a component at `offset` sits at `time`.
+    /// How far into the cycle a component at `offset` sits at `time`, 0 before its turn comes.
     private static func cycleElapsed(
         period: TimeInterval,
         offset: TimeInterval,
-        at time: CFTimeInterval = CACurrentMediaTime()
+        start: CFTimeInterval,
+        at time: CFTimeInterval
     ) -> TimeInterval {
         guard period > 0 else { return 0 }
-        let elapsed = (time - epoch - offset).truncatingRemainder(dividingBy: period)
-        return elapsed < 0 ? elapsed + period : elapsed
+        let elapsed = time - start - offset
+        guard elapsed > 0 else { return 0 }
+        return elapsed.truncatingRemainder(dividingBy: period)
     }
 }

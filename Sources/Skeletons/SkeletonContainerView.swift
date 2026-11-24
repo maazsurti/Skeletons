@@ -33,6 +33,33 @@ public final class SkeletonContainerView: UIView {
         fatalError("The app builds its UI in code; init(coder:) is not supported")
     }
 
+    public override func willMove(toWindow newWindow: UIWindow?) {
+        super.willMove(toWindow: newWindow)
+        skeletonSweepStart = nil
+    }
+
+    public override var isHidden: Bool {
+        didSet {
+            guard isHidden != oldValue, !isHidden else { return }
+            restartSweep()
+        }
+    }
+
+    /// Starts the wave again from the container's leading edge: the clock is cleared and every block
+    /// inside takes its place again.
+    func restartSweep() {
+        skeletonSweepStart = nil
+        clearPlaces(in: self)
+    }
+
+    private func clearPlaces(in view: UIView) {
+        if let block = view as? SkeletonView {
+            block.sweepPlace = nil
+            block.rephase()
+        }
+        view.subviews.forEach(clearPlaces(in:))
+    }
+
     /// The text VoiceOver reads. Nil uses the theme's text.
     public var loadingText: String? {
         didSet {
@@ -44,6 +71,7 @@ public final class SkeletonContainerView: UIView {
     public var isShimmering = true {
         didSet {
             guard isShimmering != oldValue else { return }
+            if isShimmering { restartSweep() }
             applyShimmering(to: self)
         }
     }

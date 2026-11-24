@@ -4,7 +4,7 @@ import QuartzCore
 @testable import Skeletons
 
 /// The sweep replayed on a synthetic clock: one pass at the themed pace, held off screen while the
-/// wave crosses the rest of the screen, and repeated on one shared timeline. The band's place is a
+/// wave crosses the rest of the screen, and repeated from the screen's start. The band's place is a
 /// pure function of the clock, so three cycles can be stepped frame by frame and compared.
 @MainActor
 struct SweepReplayTests {
@@ -177,7 +177,7 @@ struct SweepReplayTests {
                     var positions: [CGFloat] = []
                     for index in 0..<samples {
                         let progress = ShimmerTimeline.passProgress(
-                            at: (Double(index) + 0.5) * frame,
+                            at: offset + (Double(index) + 0.5) * frame,
                             pass: pass,
                             period: period,
                             offset: offset

@@ -97,9 +97,18 @@ public final class SkeletonSwitcher {
         guard !contentHasArrived else { return }
 
         isSkeletonVisible = true
+        restartSweeps(in: skeleton)
         setVisible(content, false)
         setVisible(skeleton, true)
         scheduleMinimumVisible()
+    }
+
+    /// Starts each container's wave from its leading edge as the skeleton comes on screen.
+    private func restartSweeps(in view: UIView) {
+        if let container = view as? SkeletonContainerView {
+            container.restartSweep()
+        }
+        view.subviews.forEach(restartSweeps(in:))
     }
 
     private func scheduleMinimumVisible() {

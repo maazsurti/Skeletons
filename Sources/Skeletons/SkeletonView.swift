@@ -25,6 +25,9 @@ public final class SkeletonView: UIView {
     /// block stays on screen.
     var sweepPlace: SweepOrder.Place?
 
+    /// The window group this block was placed by, kept after the block leaves the window.
+    weak var looseGroup: LooseSweepGroup?
+
     weak var cornerSource: UIView?
 
     /// Whether this block is on screen and should take a place in the wave.
@@ -142,6 +145,7 @@ public final class SkeletonView: UIView {
 
     public override func didMoveToWindow() {
         super.didMoveToWindow()
+        sweepPlace = nil
         updateAnimation(force: true)
     }
 
@@ -199,13 +203,14 @@ public final class SkeletonView: UIView {
         return isRightToLeft ? (trailing, leading) : (leading, trailing)
     }
 
-    /// Attaches whatever this block should currently be running: the shared sweep, the Reduce
+    /// Attaches whatever this block should currently be running: its screen's sweep, the Reduce
     /// Motion pulse, or nothing while it is off-window or hidden.
     private func updateAnimation(force: Bool) {
         guard let window, !isHidden, isShimmering, bounds.width > 0, bounds.height > 0 else {
             stopSweep()
             stopPulse()
             sweepPlace = nil
+            SweepOrder.leftTheWave(self)
             return
         }
 
@@ -265,7 +270,8 @@ public final class SkeletonView: UIView {
                 to: travel.to,
                 pass: pass,
                 period: period,
-                offset: offset
+                offset: offset,
+                start: place.start
             ),
             forKey: Self.sweepKey
         )

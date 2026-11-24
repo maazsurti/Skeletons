@@ -188,15 +188,22 @@ struct SkeletonShimmerTests {
         #expect(block.activeSweep == nil)
     }
 
-    // The start time is always in the past and never more than one cycle behind, so a block added
-    // later joins the wave already running.
-    @Test func startTimeSitsWithinTheCycleAlreadyRunning() {
-        let cycle: TimeInterval = 1.2
-        let start = ShimmerTimeline.startTime(period: cycle)
-        let now = CACurrentMediaTime()
+    // The sweep begins at the screen's start plus the component's offset and holds at the band's
+    // `from` until then, so a component whose turn has not come stays off the window.
+    @Test func sweepBeginsAtTheStartPlusTheComponentOffset() {
+        let start: CFTimeInterval = 1_000
+        let sweep = ShimmerTimeline.sweepAnimation(
+            from: -100,
+            to: 400,
+            pass: 1.2,
+            period: 1.5,
+            offset: 0.3,
+            start: start
+        )
 
-        #expect(start <= now)
-        #expect(now - start < cycle)
+        #expect(abs(sweep.beginTime - (start + 0.3)) < 0.000_001)
+        #expect(sweep.fillMode == .backwards)
+        #expect(ShimmerTimeline.passProgress(at: start, pass: 1.2, period: 1.5, offset: 0.3, start: start) == 0)
     }
 
     // Reduce Motion replaces the sweep with the pulse on the block's fill, and the sweep stays off.
