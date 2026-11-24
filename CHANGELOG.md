@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.4.1
+
+- Each `SkeletonContainerView` keeps its own sweep clock: the wave starts at the container's first
+  component when it comes on screen, and the components below follow in stagger order instead of
+  joining a cycle already in progress.
+- A component holds its band off the window until its turn, so a later component's band arrives from
+  the leading edge rather than starting mid-crossing.
+- A relayout, a scroll or a trait change resumes the band exactly where it was. A container that
+  returns to the window, comes back from hidden, is switched on again, or is revealed by
+  `SkeletonSwitcher` starts its wave again from the leading edge.
+- Blocks placed by hand share one clock per window. The group and its clock are dropped once its
+  last block stops, so the next screen starts at the first place on a fresh clock.
+
 ## 1.4.0
 
 - `skeletonized(only:keeping:ignoring:)` builds a skeleton from the real view: each leaf that stands

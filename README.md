@@ -340,14 +340,20 @@ which one is on screen.
 ## Behaviour
 
 - **One band, one wave over the components.** Every block positions its highlight in window
-  coordinates on a shared `CACurrentMediaTime()`-aligned clock, and each component takes the next
-  phase in document order: the topmost component starts the wave, and each one below it crosses
-  `shimmerStagger` seconds after the one above it, so a screen's offsets run 0, 0.1, 0.2 … A component
-  is the piece the eye reads as one — a card, a row, a field, a section — and every block inside it
-  crosses with it, so a card of five blocks sweeps as one surface. A piece the response does not
-  fill, such as a real banner or a heading that is already text, takes no place. `shimmerStagger` 0
-  puts every component back in phase. A block keeps its place while it is on screen, so a scroll or
-  a second block arriving cannot move its phase.
+  coordinates on its screen's clock: a `SkeletonContainerView` starts its wave at its first
+  component's leading edge when it comes on screen. Each component takes the next phase in document
+  order: the topmost component starts the wave, and each one below it crosses `shimmerStagger`
+  seconds after the one above it, so a screen's offsets run 0, 0.1, 0.2 … A component is the piece
+  the eye reads as one — a card, a row, a field, a section — and every block inside it crosses with
+  it, so a card of five blocks sweeps as one surface. A piece the response does not fill, such as a
+  real banner or a heading that is already text, takes no place. `shimmerStagger` 0 puts every
+  component back in phase. A component whose turn has not come holds its band off the window. A
+  block keeps its place while it is on screen, so a scroll, a relayout, a trait change or a second
+  block arriving cannot move its phase.
+- **A wave that starts with its screen.** A container that returns to the window, comes back from
+  hidden, is switched on again, or is revealed by `SkeletonSwitcher` starts its wave over from the
+  leading edge. Blocks placed by hand share one clock per window, and the next screen starts at the
+  first place on a fresh clock once the last block of the one before stops.
 - **A cycle long enough for the whole wave.** One pass takes `shimmerDuration`, then the band waits
   off the window for `shimmerMinRest` (0.25 s by default) before it repeats; the screen repeats after
   the pass, that rest and the time the wave needs to reach its last component — the stagger times the
