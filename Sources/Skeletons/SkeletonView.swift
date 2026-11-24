@@ -25,6 +25,8 @@ public final class SkeletonView: UIView {
     /// block stays on screen.
     var sweepPlace: SweepOrder.Place?
 
+    weak var cornerSource: UIView?
+
     /// Whether this block is on screen and should take a place in the wave.
     var isSweeping: Bool {
         window != nil && !isHidden && isShimmering && bounds.width > 0 && bounds.height > 0
@@ -156,6 +158,10 @@ public final class SkeletonView: UIView {
 
     public override func layoutSubviews() {
         super.layoutSubviews()
+        if let cornerSource {
+            cornerSource.layoutIfNeeded()
+            fill.layer.cornerRadius = cornerSource.layer.cornerRadius
+        }
         highlight.frame = CGRect(x: 0, y: 0, width: bandWidth, height: bounds.height)
         layOutBand()
         updateAnimation(force: false)

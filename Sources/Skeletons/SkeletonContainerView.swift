@@ -33,6 +33,11 @@ public final class SkeletonContainerView: UIView {
         fatalError("The app builds its UI in code; init(coder:) is not supported")
     }
 
+    public override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        let hit = super.hitTest(point, with: event)
+        return hit === self ? nil : hit
+    }
+
     /// The text VoiceOver reads. Nil uses the theme's text.
     public var loadingText: String? {
         didSet {

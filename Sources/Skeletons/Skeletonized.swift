@@ -1,49 +1,46 @@
 import UIKit
 import ObjectiveC
 
-/// How a real view becomes a placeholder: the automatic rules, one block for the whole view, the
-/// real view kept as it is, or the view's space kept with nothing in it.
-public enum SkeletonMode {
-    case automatic
-    case block
-    case `static`
-    case ignored
+public enum SkeletonMode: Int {
+    case automatic = 0
+    case block = 1
+    case `static` = 2
+    case ignored = 3
 }
 
 public extension UIView {
 
-    /// The mode this view states for itself. Nil inherits from the walk.
     var skeletonMode: SkeletonMode? {
-        get { skeletonModeBox.flatMap(SkeletonMode.init(storedValue:)) }
-        set { skeletonModeBox = newValue?.storedValue }
+        get {
+            (objc_getAssociatedObject(self, &SkeletonizedAssociation.mode) as? NSNumber)
+                .flatMap { SkeletonMode(rawValue: $0.intValue) }
+        }
+        set {
+            objc_setAssociatedObject(
+                self,
+                &SkeletonizedAssociation.mode,
+                newValue.map { NSNumber(value: $0.rawValue) },
+                .OBJC_ASSOCIATION_RETAIN_NONATOMIC
+            )
+        }
     }
 
-    /// States this view's mode and returns it.
     @discardableResult
     func skeletonMode(_ mode: SkeletonMode) -> Self {
         skeletonMode = mode
         return self
     }
 
-    /// A skeleton in this view's own geometry, ready to place where the content goes. The view is
-    /// filled with sample data; the returned container reads that layout and stands in for it.
-    ///
-    /// - Parameters:
-    ///   - only: the views to skeletonize. Anything else is left real.
-    ///   - keeping: views left real, in place.
-    ///   - ignoring: views that keep their space and show nothing.
     func skeletonized(
         only: [UIView] = [],
         keeping: [UIView] = [],
         ignoring: [UIView] = []
     ) -> SkeletonContainerView {
-        let content = Skeletonizer.prepare(self, lists: Skeletonizer.Lists(only: only, keeping: keeping, ignoring: ignoring))
-        return SkeletonContainerView(content: content)
+        let lists = Skeletonizer.Lists(only: only, keeping: keeping, ignoring: ignoring)
+        return SkeletonContainerView(content: Skeletonizer.prepare(self, lists: lists, marking: true))
     }
 }
 
-/// A real view built at the call site, skeletonized by the automatic rules, for use inside a
-/// `SkeletonLayout` or any other element tree.
 @MainActor
 public struct Skeletonized: SkeletonElement {
     private let make: () -> UIView
@@ -53,11 +50,10 @@ public struct Skeletonized: SkeletonElement {
     }
 
     public func makeView() -> UIView {
-        Skeletonizer.prepare(make(), lists: Skeletonizer.Lists(only: [], keeping: [], ignoring: []))
+        let lists = Skeletonizer.Lists(only: [], keeping: [], ignoring: [])
+        return Skeletonizer.prepare(make(), lists: lists, marking: false)
     }
 }
-
-// MARK: - The walk
 
 @MainActor
 enum Skeletonizer {
@@ -68,7 +64,7 @@ enum Skeletonizer {
         let ignoring: [UIView]
     }
 
-    static func prepare(_ root: UIView, lists: Lists) -> UIView {
+    static func prepare(_ root: UIView, lists: Lists, marking: Bool) -> UIView {
         let host = SkeletonizedHostView()
         root.translatesAutoresizingMaskIntoConstraints = false
         host.addSubview(root)
@@ -78,65 +74,61 @@ enum Skeletonizer {
             root.trailingAnchor.constraint(equalTo: host.trailingAnchor),
             root.bottomAnchor.constraint(equalTo: host.bottomAnchor),
         ])
-        walk(root, lists: lists, automatic: lists.only.isEmpty, inScope: lists.only.isEmpty)
-        markComponents(in: host)
+        walk(root, lists: lists, inherited: lists.only.isEmpty ? .automatic : .static)
+        if marking { mark(host) }
         return host
     }
 
-    private static func walk(_ view: UIView, lists: Lists, automatic: Bool, inScope: Bool) {
-        let scope = inScope || lists.only.contains(view)
-        let applies = automatic || lists.only.contains(view)
-        switch mode(of: view, lists: lists, inScope: scope) {
+    private static func walk(_ view: UIView, lists: Lists, inherited: SkeletonMode) {
+        if view.isHidden || view.alpha == 0 { return }
+        let mode = mode(of: view, lists: lists, inherited: inherited)
+        view.skeletonTouchable = mode == .static
+        switch mode {
         case .ignored:
             view.alpha = 0
         case .block:
             view.alpha = 0
             overlay(view)
         case .static:
-            view.skeletonKeptStatic = true
-            descend(view, lists: lists, automatic: false, inScope: scope)
+            descend(view, lists: lists, inherited: .static)
         case .automatic:
-            rules(view, lists: lists, inScope: scope)
-        case nil:
-            if !lists.only.isEmpty && !scope {
-                view.skeletonKeptStatic = true
-                descend(view, lists: lists, automatic: false, inScope: scope)
-            } else if applies {
-                rules(view, lists: lists, inScope: scope)
-            } else {
-                descend(view, lists: lists, automatic: false, inScope: scope)
+            if !(view is UIScrollView) {
+                view.gestureRecognizers?.forEach(view.removeGestureRecognizer)
             }
+            rules(view, lists: lists)
         }
     }
 
-    private static func mode(of view: UIView, lists: Lists, inScope: Bool) -> SkeletonMode? {
+    private static func mode(of view: UIView, lists: Lists, inherited: SkeletonMode) -> SkeletonMode {
         if lists.ignoring.contains(view) { return .ignored }
         if lists.keeping.contains(view) { return .static }
+        if lists.only.contains(view) { return .automatic }
         if let stated = view.skeletonMode { return stated }
-        if !lists.only.isEmpty && !inScope { return .static }
-        return nil
+        return inherited
     }
 
-    // MARK: - Rules
+    private static func descend(_ view: UIView, lists: Lists, inherited: SkeletonMode) {
+        for subview in view.subviews where !isPrivate(subview) {
+            walk(subview, lists: lists, inherited: inherited)
+        }
+    }
 
-    private static func rules(_ view: UIView, lists: Lists, inScope: Bool) {
-        if view.isHidden || view.alpha == 0 { return }
+    private static func rules(_ view: UIView, lists: Lists) {
         if view is SkeletonView { return }
+        if view is UISearchTextField || view is UISearchBar { return }
 
         if let label = view as? UILabel {
-            blockOut(label)
+            blockOut(label, lists: lists)
             return
         }
 
         if let stack = view as? UIStackView, isTextStack(stack) {
-            stack.alpha = 0
-            overlay(stack)
+            collapse(stack, lists: lists)
             return
         }
 
         if let image = view as? UIImageView {
-            image.alpha = 0
-            overlay(image, radius: image.layer.cornerRadius, corners: image.layer.maskedCorners)
+            collapse(image, lists: lists)
             return
         }
 
@@ -148,35 +140,37 @@ enum Skeletonizer {
         }
 
         if let text = view as? UITextView {
-            text.text = ""
-            shimmerValue(in: text, font: text.font)
+            if text.isEditable {
+                text.textColor = .clear
+                shimmerValue(in: text, font: text.font)
+            } else {
+                collapse(text, lists: lists)
+            }
             return
         }
 
-        if view is UIControl {
-            view.alpha = 0
-            overlay(view)
+        if let control = view as? UIControl, !isTappableCard(control) {
+            collapse(control, lists: lists)
             return
         }
 
         if isThinSeparator(view) { return }
 
         if let effect = view as? UIVisualEffectView {
-            walk(effect.contentView, lists: lists, automatic: true, inScope: inScope)
+            walk(effect.contentView, lists: lists, inherited: .automatic)
             return
         }
 
         if view is UIScrollView {
-            descend(view, lists: lists, automatic: true, inScope: inScope)
+            descend(view, lists: lists, inherited: .automatic)
             return
         }
 
         if hasChrome(view) {
-            if contentLeafCount(view) > 1 && !hasFixedSize(view) {
-                descend(view, lists: lists, automatic: true, inScope: inScope)
+            if contentsLeafCount(view) > 1 && !hasFixedSize(view) {
+                descend(view, lists: lists, inherited: .automatic)
             } else {
-                view.alpha = 0
-                overlay(view)
+                collapse(view, lists: lists)
             }
             return
         }
@@ -189,31 +183,50 @@ enum Skeletonizer {
             return
         }
 
-        descend(view, lists: lists, automatic: true, inScope: inScope)
+        descend(view, lists: lists, inherited: .automatic)
     }
 
-    private static func descend(_ view: UIView, lists: Lists, automatic: Bool, inScope: Bool) {
-        for subview in view.subviews where !isPrivate(subview) {
-            walk(subview, lists: lists, automatic: automatic, inScope: inScope)
+    private static func collapse(_ view: UIView, lists: Lists) {
+        guard !holdsKeptView(view, lists: lists) else {
+            descend(view, lists: lists, inherited: .automatic)
+            return
         }
+        view.alpha = 0
+        overlay(view)
     }
 
-    // MARK: - Blocks
+    private static func holdsKeptView(_ view: UIView, lists: Lists) -> Bool {
+        view.subviews.contains { isKept($0, lists: lists) }
+    }
 
-    private static func blockOut(_ label: UILabel) {
-        label.alpha = 0
+    private static func isKept(_ view: UIView, lists: Lists) -> Bool {
+        if view.isHidden || view.alpha == 0 { return false }
+        if lists.ignoring.contains(view) { return true }
+        if lists.keeping.contains(view) { return true }
+        if lists.only.contains(view) { return true }
+        if view.skeletonMode != nil { return true }
+        return view.subviews.contains { isKept($0, lists: lists) }
+    }
+
+    private static func blockOut(_ label: UILabel, lists: Lists) {
+        if label.text?.isEmpty ?? true {
+            label.text = String(repeating: "\u{00A0}", count: 12)
+        }
 
         guard label.numberOfLines == 1 else {
-            overlay(label)
+            collapse(label, lists: lists)
             return
         }
 
-        if label.text?.isEmpty != false && label.attributedText == nil {
-            label.text = "\u{00A0}"
+        guard !holdsKeptView(label, lists: lists) else {
+            descend(label, lists: lists, inherited: .automatic)
+            return
         }
 
-        let size = label.intrinsicContentSize
+        label.alpha = 0
         guard let host = label.superview else { return }
+
+        let size = label.intrinsicContentSize
         let block = SkeletonView(cornerRadius: label.font.pointSize / 2)
         block.translatesAutoresizingMaskIntoConstraints = false
         host.insertSubview(block, aboveSubview: label)
@@ -246,12 +259,12 @@ enum Skeletonizer {
     }
 
     @discardableResult
-    private static func overlay(
-        _ view: UIView,
-        radius: CGFloat? = nil,
-        corners: CACornerMask = .skeletonAllCorners
-    ) -> SkeletonView {
-        let block = SkeletonView(cornerRadius: radius ?? view.layer.cornerRadius, corners: corners)
+    private static func overlay(_ view: UIView, radius: CGFloat? = nil, corners: CACornerMask? = nil) -> SkeletonView {
+        let block = SkeletonView(
+            cornerRadius: radius ?? view.layer.cornerRadius,
+            corners: corners ?? view.layer.maskedCorners
+        )
+        block.cornerSource = view
         guard let host = view.superview else { return block }
         block.translatesAutoresizingMaskIntoConstraints = false
         host.insertSubview(block, aboveSubview: view)
@@ -280,13 +293,22 @@ enum Skeletonizer {
         ])
     }
 
-    // MARK: - Reading the view
-
     private static func isTextStack(_ stack: UIStackView) -> Bool {
         guard stack.axis == .vertical, stack.spacing == 0, !stack.arrangedSubviews.isEmpty else {
             return false
         }
-        return stack.arrangedSubviews.allSatisfy { $0 is UILabel && !$0.isHidden && $0.alpha > 0 }
+        guard stack.arrangedSubviews.allSatisfy({ $0 is UILabel && !$0.isHidden && $0.alpha > 0 }) else {
+            return false
+        }
+        return !stack.arrangedSubviews.contains { arranged in
+            let spacing = stack.customSpacing(after: arranged)
+            return spacing != 0 && spacing != CGFloat(Float.greatestFiniteMagnitude)
+        }
+    }
+
+    private static func isTappableCard(_ control: UIControl) -> Bool {
+        guard nearestSystemClass(type(of: control)) == UIControl.self else { return false }
+        return contentsLeafCount(control) > 1
     }
 
     private static func hasChrome(_ view: UIView) -> Bool {
@@ -295,27 +317,55 @@ enum Skeletonizer {
         return view.layer.shadowOpacity > 0
     }
 
+    private static func isCard(_ view: UIView) -> Bool {
+        if view.layer.borderWidth > 0 { return true }
+        if view.layer.shadowOpacity > 0 { return true }
+        guard let background = view.backgroundColor, background.cgColor.alpha > 0 else { return false }
+        return view.layer.cornerRadius > 0
+    }
+
     private static func isDrawn(_ view: UIView) -> Bool {
         if hasChrome(view) { return true }
         if !(view.layer.sublayers ?? []).isEmpty { return true }
-        return isCustomType(view)
+        return isCustom(view)
     }
 
-    private static func isCustomType(_ view: UIView) -> Bool {
-        let name = NSStringFromClass(type(of: view))
-        return !name.hasPrefix("UI") && !name.hasPrefix("_")
+    private static func isSystemClass(_ type: AnyClass) -> Bool {
+        Bundle(for: type).bundleURL == Bundle(for: UIView.self).bundleURL
+    }
+
+    private static func isSystem(_ view: UIView) -> Bool {
+        isSystemClass(type(of: view))
     }
 
     private static func isPrivate(_ view: UIView) -> Bool {
-        NSStringFromClass(type(of: view)).hasPrefix("_")
+        isSystem(view) && NSStringFromClass(type(of: view)).hasPrefix("_")
+    }
+
+    private static func isCustom(_ view: UIView) -> Bool {
+        !isSystem(view)
+    }
+
+    private static func nearestSystemClass(_ type: AnyClass) -> AnyClass? {
+        var current: AnyClass? = type
+        while let candidate = current {
+            if isSystemClass(candidate) { return candidate }
+            current = class_getSuperclass(candidate)
+        }
+        return nil
+    }
+
+    private static func contentsLeafCount(_ view: UIView) -> Int {
+        view.subviews.reduce(0) { $0 + (isPrivate($1) ? 0 : contentLeafCount($1)) }
     }
 
     private static func contentLeafCount(_ view: UIView) -> Int {
         if view.isHidden || view.alpha == 0 { return 0 }
         if view is SkeletonView { return 0 }
         if view is UILabel || view is UIImageView || view is UIControl { return 1 }
+        if let effect = view as? UIVisualEffectView { return contentLeafCount(effect.contentView) }
         if view.subviews.isEmpty { return isDrawn(view) ? 1 : 0 }
-        return view.subviews.reduce(0) { $0 + contentLeafCount($1) }
+        return contentsLeafCount(view)
     }
 
     private static func hasFixedSize(_ view: UIView) -> Bool {
@@ -344,18 +394,29 @@ enum Skeletonizer {
             && constraint.multiplier == 1
     }
 
-    // MARK: - Sweep
-
-    private static func markComponents(in host: UIView) {
-        guard let root = host.subviews.first(where: { !($0 is SkeletonView) }) else { return }
-        let rows = root.subviews.filter(containsBlock)
-        if rows.isEmpty {
-            if containsBlock(root) { SweepOrder.markComponent(root) }
+    static func mark(_ view: UIView) {
+        guard containsBlock(view) else { return }
+        if view is SkeletonView || isCard(view) {
+            SweepOrder.markComponent(view)
             return
         }
-        for row in rows {
-            SweepOrder.markComponent(row)
+        let kids = view.subviews.filter(containsBlock)
+        if kids.count == 1 || isVerticalStack(view) || view is UIScrollView || kids.contains(where: containsCard) {
+            for kid in kids {
+                mark(kid)
+            }
+            return
         }
+        SweepOrder.markComponent(view)
+    }
+
+    private static func isVerticalStack(_ view: UIView) -> Bool {
+        (view as? UIStackView)?.axis == .vertical
+    }
+
+    private static func containsCard(_ view: UIView) -> Bool {
+        if isCard(view) { return true }
+        return view.subviews.contains(where: containsCard)
     }
 
     private static func containsBlock(_ view: UIView) -> Bool {
@@ -364,10 +425,6 @@ enum Skeletonizer {
     }
 }
 
-// MARK: - Touches
-
-/// The wrapper the skeletonized tree hangs from. Only a view inside a subtree the caller kept
-/// static receives a touch, so a template's gestures never fire on sample data.
 @MainActor
 final class SkeletonizedHostView: UIView {
 
@@ -375,49 +432,23 @@ final class SkeletonizedHostView: UIView {
         guard let hit = super.hitTest(point, with: event) else { return nil }
         var candidate: UIView? = hit
         while let view = candidate, view !== self {
-            if view.skeletonKeptStatic { return hit }
+            if let touchable = view.skeletonTouchable {
+                return touchable ? hit : nil
+            }
             candidate = view.superview
         }
         return nil
     }
 }
 
-// MARK: - Storage on the view tree
-
-private extension SkeletonMode {
-    var storedValue: UInt8 {
-        switch self {
-        case .automatic: return 0
-        case .block: return 1
-        case .static: return 2
-        case .ignored: return 3
-        }
-    }
-
-    init?(storedValue: UInt8) {
-        switch storedValue {
-        case 0: self = .automatic
-        case 1: self = .block
-        case 2: self = .static
-        case 3: self = .ignored
-        default: return nil
-        }
-    }
-}
-
 extension UIView {
-    fileprivate var skeletonModeBox: UInt8? {
-        get { (objc_getAssociatedObject(self, &SkeletonizedAssociation.mode) as? NSNumber)?.uint8Value }
-        set { objc_setAssociatedObject(self, &SkeletonizedAssociation.mode, newValue.map { NSNumber(value: $0) }, .OBJC_ASSOCIATION_RETAIN_NONATOMIC) }
-    }
-
-    fileprivate var skeletonKeptStatic: Bool {
-        get { (objc_getAssociatedObject(self, &SkeletonizedAssociation.keptStatic) as? NSNumber)?.boolValue ?? false }
-        set { objc_setAssociatedObject(self, &SkeletonizedAssociation.keptStatic, newValue ? NSNumber(value: true) : nil, .OBJC_ASSOCIATION_RETAIN_NONATOMIC) }
+    fileprivate var skeletonTouchable: Bool? {
+        get { (objc_getAssociatedObject(self, &SkeletonizedAssociation.touchable) as? NSNumber)?.boolValue }
+        set { objc_setAssociatedObject(self, &SkeletonizedAssociation.touchable, newValue.map { NSNumber(value: $0) }, .OBJC_ASSOCIATION_RETAIN_NONATOMIC) }
     }
 }
 
 private enum SkeletonizedAssociation {
     nonisolated(unsafe) static var mode: UInt8 = 0
-    nonisolated(unsafe) static var keptStatic: UInt8 = 0
+    nonisolated(unsafe) static var touchable: UInt8 = 0
 }
