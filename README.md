@@ -19,6 +19,18 @@ skeleton; its cards are not each skeletonized on their own.
 
 ![The same card feed as a skeleton on the left and the loaded content on the right](Docs/Media/default-side-by-side.png)
 
+## What it solves
+
+- **Skeleton layouts drift from the real screen.** The placeholder is built from your own view, so
+  every layout change carries over.
+- **Fast loads flash a skeleton.** A load that finishes inside 150 ms skips it.
+- **Placeholders get missed by accessibility.** VoiceOver reads one "Loading" element, and Reduce
+  Motion swaps the sweep for a pulse.
+- **Right-to-left screens sweep the wrong way.** The band runs from the trailing edge.
+- **Every card shimmers out of step.** One setting lines the band up across the whole screen.
+- **Styling each placeholder by hand.** One theme sets the colors, timing and shape, and its
+  defaults follow light and dark mode.
+
 ## Install
 
 In `Package.swift`:
@@ -113,6 +125,8 @@ The demo app runs this screen: sample posts skeletonized, then the real feed aft
 
 ## What turns into a block
 
+![One card as the app draws it on the left, and the same card skeletonized on the right: the name and copy become bars, the photo a block, and the button a bar at its height](Docs/Media/block-mapping.png)
+
 `skeletonized()` turns each view that will hold fetched content into a same-size grey block:
 
 - A label becomes a bar at its width and line height. Several lines become one block.
@@ -143,6 +157,8 @@ One view can set its own mode with `skeletonMode(_:)`: `.automatic`, `.block`, `
 own. `Skeletonized { view }` follows the same rules inside a layout.
 
 ## Build one by hand
+
+![The same hand-built layout as a skeleton: a title line, a card with a photo beside two lines, and five rows of a circle, two lines and a trailing label](Docs/Media/hand-built.png)
 
 When no real view has the shape you need, declare it. Spacing, radii and line heights come from the
 theme:
@@ -207,6 +223,8 @@ SkeletonTheme.current = SkeletonTheme(
 `cornerRadius` defaults to 8. A loading field takes its surface, border, text colour, font, height,
 radius and padding from the same theme.
 
+![A feed on a custom theme: navy blocks with a pale blue band](Docs/Media/custom-colors.png)
+
 ### Timing
 
 `shimmerDuration` is the time one sweep takes (1.7 s). `shimmerMinRest` is the pause with the band
@@ -227,6 +245,8 @@ sections and separate skeletons as a single continuous stripe.
 SkeletonTheme.current = SkeletonTheme(shimmerAlignment: .window)
 ```
 
+![The same feed twice: on the left each card sweeps on its own, on the right one band crosses every card](Docs/Media/shimmer-alignment.gif)
+
 ### The stripe's angle
 
 `shimmerAngle` leans the stripe, in degrees from vertical. `0` draws an upright band, `20` is the
@@ -237,7 +257,11 @@ side is capped at 80°. Right-to-left layouts mirror it, whichever angle you set
 SkeletonTheme.current = SkeletonTheme(shimmerAngle: 30)
 ```
 
+![The same feed twice: on the left an upright band at 0°, on the right a 45° stripe](Docs/Media/shimmer-angle.gif)
+
 ### Right to left
+
+![A right-to-left feed: the sweep runs from the trailing edge and the layout is mirrored](Docs/Media/right-to-left.png)
 
 `isRightToLeft` decides the direction of the sweep. Point it at the app's own language state:
 
