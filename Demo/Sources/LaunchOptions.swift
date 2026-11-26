@@ -26,6 +26,7 @@ struct LaunchOptions {
     enum Screen {
         case feed
         case manual
+        case mapping
     }
 
     var state: State = .run
@@ -94,6 +95,7 @@ private extension LaunchOptions.Screen {
     init(name: String) {
         switch name {
         case "manual": self = .manual
+        case "mapping": self = .mapping
         default: self = .feed
         }
     }

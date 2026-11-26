@@ -37,6 +37,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         let root: UIViewController = switch options.screen {
         case .feed: FeedViewController(options: options)
         case .manual: ManualSkeletonViewController()
+        case .mapping: MappingViewController()
         }
         let window = UIWindow(windowScene: windowScene)
         window.rootViewController = UINavigationController(rootViewController: root)
