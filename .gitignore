@@ -2,5 +2,6 @@
 .swiftpm/
 DerivedData/
 *.xcodeproj/
+!Demo/SkeletonsDemo.xcodeproj/
 *.xcuserstate
 .DS_Store

@@ -1,0 +1,67 @@
+{
+  "default-configuration": "Release",
+  "configurations": [
+    "Debug",
+    "Release",
+  ],
+  "localizations": {
+    "development": "en",
+    "supported": [
+      "Base",
+    ],
+  },
+  "packages": [
+    {
+      "kind": "local",
+      "path": "..",
+    },
+  ],
+  "files": [
+    {
+      "kind": "group",
+      "name": "Products",
+      "children": [
+        { "path": "<PRODUCTS>/SkeletonsDemo.app", "id": "80E83DC630B7F93500068699", "type": "wrapper.application", "index": false },
+      ],
+    }, {
+      "kind": "folder",
+      "path": "Sources",
+      "target-membership": [
+        "SkeletonsDemo",
+      ],
+    },
+  ],
+  "targets": [
+    {
+      "name": "SkeletonsDemo",
+      "id": "80E83DC530B7F93500068699",
+      "product": "Products/SkeletonsDemo.app",
+      "product-type": "application",
+      "build-phases": [
+        "compile-sources",
+        "frameworks",
+        "resources",
+      ],
+      "package-product-members": [
+        {
+          "package": "..",
+          "product-name": "Skeletons",
+          "build-phase": { "build-phase": "frameworks" },
+        },
+      ],
+      "build-settings": {
+        "CODE_SIGNING_ALLOWED": "NO",
+        "GENERATE_INFOPLIST_FILE": "YES",
+        "INFOPLIST_KEY_UILaunchScreen_Generation": "YES",
+        "IPHONEOS_DEPLOYMENT_TARGET": "17.0",
+        "PRODUCT_BUNDLE_IDENTIFIER": "com.example.SkeletonsDemo",
+        "PRODUCT_NAME": "$(TARGET_NAME)",
+        "SDKROOT": "iphoneos",
+        "SUPPORTED_PLATFORMS": "iphoneos iphonesimulator",
+        "SWIFT_EMIT_LOC_STRINGS": "YES",
+        "SWIFT_VERSION": "5.0",
+        "TARGETED_DEVICE_FAMILY": "1",
+      },
+    },
+  ],
+}
