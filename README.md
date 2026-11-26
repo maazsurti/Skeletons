@@ -1,20 +1,21 @@
 # Skeletons
 
-Loading placeholders for UIKit: grey blocks laid out like the screen's content, with one shimmer
-band crossing them while a request is in flight.
+Loading placeholders for UIKit. Grey blocks stand in for a screen's content while it loads, with one
+light band sweeping across them.
 
 ![A card feed loading on the default theme: the shimmer band crosses the cards, then the text and photos appear](Docs/Media/hero.gif)
 
 ```swift
 import Skeletons
 
-let skeleton = OrderCardView(order: .sample).skeletonized()
+let skeleton = makeFeed(posts: Post.samples).skeletonized()
 ```
 
-That is the whole setup. `skeletonized()` reads a real view filled with sample data and stands in
-for it, so each block lands where the content will. Every block shimmers, the screen reads as one
-VoiceOver "Loading" element, Reduce Motion swaps the sweep for a pulse, and right-to-left layouts
-sweep from the trailing edge.
+That is the whole setup. Build the screen's content with the function it already uses, pass sample
+data, and call `skeletonized()`. Every block lands where the content will.
+
+Skeletonize the whole area that loads, once. A list filled with a few sample items gives one
+skeleton; its cards are not each skeletonized on their own.
 
 ![The same card feed as a skeleton on the left and the loaded content on the right](Docs/Media/default-side-by-side.png)
 
@@ -31,67 +32,119 @@ Major*. The product is **`Skeletons`**.
 
 iOS 17+, Swift 6 tools.
 
-## Show it while a screen loads
+## Show it on a whole screen
 
 ![The default skeleton on a card feed: header, two copy lines and a photo placeholder per card](Docs/Media/default-skeleton.png)
 
-Build the view as the loaded screen builds it, fill it with sample data, skeletonize it, and hand
-both views to a switcher placed in the same frame:
+A feed screen builds its rows with one function. While the posts load it passes sample posts and
+skeletonizes the result. When they arrive it passes the real posts instead.
 
 ```swift
-let skeleton = OrderCardView(order: .sample).skeletonized()
-let switcher = SkeletonSwitcher(skeleton: skeleton, content: contentView)
+import Skeletons
+import UIKit
 
-func load() {
-    switcher.startLoading()
-    service.fetch { [weak self] result in
-        self?.apply(result)
-        self?.switcher.showContent()
+struct Post {
+    let author, title, body: String
+    static let samples = [
+        Post(author: "Amina", title: "A quiet morning", body: "Coffee and an hour to spare."),
+        Post(author: "Jonas", title: "New headphones", body: "Warm sound, a small case."),
+        Post(author: "Priya", title: "Back from the coast", body: "Three days of wind."),
+    ]
+}
+
+final class FeedViewController: UIViewController {
+
+    private let host = UIView()   // the app's scroll view content
+    private let content = UIView()
+    private var switcher: SkeletonSwitcher?
+    private let service = PostService()
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        pin(content, in: host)
+        load()
+    }
+
+    func load() {
+        let skeleton = makeFeed(posts: Post.samples).skeletonized()   // the package call
+        pin(skeleton, in: host)
+        switcher = SkeletonSwitcher(skeleton: skeleton, content: content)
+        switcher?.startLoading()                                      // the package times it
+
+        service.fetch { [weak self] result in
+            guard let self else { return }
+            switch result {
+            case .success(let posts):
+                self.pin(self.makeFeed(posts: posts), in: self.content)
+                self.switcher?.showContent()                          // fade the feed in
+            case .failure(let error):
+                self.showRetry(for: error)                            // error plus a retry button
+            }
+        }
+    }
+
+    func makeFeed(posts: [Post]) -> UIStackView {
+        let feed = UIStackView(arrangedSubviews: posts.map { PostRow(post: $0) })
+        feed.axis = .vertical
+        feed.spacing = 16
+        return feed
     }
 }
 ```
 
-A load that finishes inside 150 ms shows the content with no skeleton at all. One that takes longer
-shows the skeleton for at least 300 ms, then cross-dissolves into the content over 200 ms.
+`PostRow` is the app's row: an avatar, a name, two lines of text and a photo. `pin(_:in:)` adds a
+view and pins its edges. `PostService` is the app's own fetch. `showRetry(for:)` shows an error with
+a retry button that calls `load()` again.
 
-The view passed to `skeletonized()` is a throwaway template: it is reparented into the skeleton and
-altered. Never pass the live view.
+You get these without writing anything else:
+
+- Every block shimmers.
+- A load that finishes inside 150 ms shows the content with no skeleton.
+- A skeleton that appears stays at least 300 ms.
+- The skeleton fades into the content over 200 ms.
+- VoiceOver reads the skeleton as one "Loading" element.
+- Reduce Motion swaps the sweep for a pulse.
+- Right-to-left layouts sweep from the trailing edge.
+
+The view you pass to `skeletonized()` is used up by the skeleton, so build a new one for each load.
+Never pass the live view.
+
+The demo app runs this screen: sample posts skeletonized, then the real feed after a simulated fetch.
 
 ## What turns into a block
 
-`skeletonized()` looks at every view in the template and swaps the ones that will hold fetched
-content for a grey block of the same size:
+`skeletonized()` turns each view that will hold fetched content into a same-size grey block:
 
-- A label becomes a bar at its own width and line box; a multi-line label becomes one block.
+- A label becomes a bar at its width and line height. Several lines become one block.
 - An image view becomes a block at its corner radius.
 - A button, switch or slider becomes one block.
-- A text field keeps its chrome and shimmers one value line; a search field stays real.
-- A view with a background, border or shadow keeps it, and the views inside it are handled the same way.
+- A text field keeps its surface, border and corners. Only its value line shimmers.
+- A search field stays real.
+- A view with a background, border or shadow becomes one block. If it holds more than one item and
+  has no fixed size, each item becomes a block instead.
 - A separator under 2 pt stays real.
 
-Labels and buttons count as fetched content, so keep the screen's own copy — titles, headings,
-field labels, chips, action buttons:
+Labels and buttons count as fetched content. Keep the screen's own copy — titles, headings, field
+labels, chips, action buttons — with these lists:
 
 ```swift
-let card = OrderCardView(order: .sample)
-let skeleton = card.skeletonized(
-    only: [card.sections],
-    keeping: [card.heading, card.actionButton],
-    ignoring: [card.badge]
+let skeleton = makeFeed(posts: Post.samples).skeletonized(
+    keeping: [titleLabel, retryButton],
+    ignoring: [divider]
 )
 ```
 
-- `only` — skeletonize these views and leave the rest real.
-- `keeping` — these views stay real, in place.
-- `ignoring` — these views keep their space and draw nothing.
+- `only` — skeletonize these views only. Everything else stays real.
+- `keeping` — these views stay real and in place.
+- `ignoring` — these views keep their space and show nothing.
 
-A view can state the same thing for itself with `skeletonMode(_:)`: `.automatic`, `.block`,
-`.static` or `.ignored`. The innermost stated mode wins. `Skeletonized { view }` runs the same rules
-inside a layout.
+One view can set its own mode with `skeletonMode(_:)`: `.automatic`, `.block`, `.static` or
+`.ignored`. A mode set on a view applies to the views inside it too, unless one of them sets its
+own. `Skeletonized { view }` follows the same rules inside a layout.
 
 ## Build one by hand
 
-When no real view expresses the shape, declare it. Spacing, radii and line heights come from the
+When no real view has the shape you need, declare it. Spacing, radii and line heights come from the
 theme:
 
 ```swift
@@ -106,26 +159,25 @@ let skeleton = SkeletonLayout {
             }
         }
     }
-    SkeletonRows(count: 5, spacing: 12, .listRow)
+    SkeletonRows(count: 5, .listRow, spacing: 12)
 }.makeView()
 ```
 
-- `SkeletonLayout`, `SkeletonColumn`, `SkeletonRow` — the arrangement; each takes `spacing`,
-  `padding` and `alignment`.
-- `SkeletonLine(.title)` — a text line, in `.title`, `.headline`, `.body`, `.caption` or
+- `SkeletonLayout`, `SkeletonColumn`, `SkeletonRow` — the root, a column and a row. Each takes
+  `spacing`, `padding` and `alignment`.
+- `SkeletonLine(.title)` — one line of text, in `.title`, `.headline`, `.body`, `.caption` or
   `.custom(size)`.
-- `SkeletonBlock`, `SkeletonPhoto`, `SkeletonCircle` — everything else a response fills.
-- `SkeletonCard` — a real card's chrome around its content.
-- `SkeletonField` and `SkeletonPickerRow` — a loading field or picker: real chrome, label, icon and
-  chevron, with only the value area shimmering.
-- `SkeletonRows(count:)` — N copies of a preset or a shape written at the call site.
-- `SkeletonSpacer()` and `SkeletonReal(view)` — the spare width, and a real view inside the shape.
-- Modifiers: `.width`, `.height`, `.widthFraction`, `.padding`, `.aspect`, `.hugging`, `.radius`.
+- `SkeletonBlock`, `SkeletonPhoto`, `SkeletonCircle` — a rectangle, a photo, a circle.
+- `SkeletonCard` — a card's background, border, radius and padding around its blocks.
+- `SkeletonField`, `SkeletonPickerRow` — a loading text field or picker, with the real label and
+  chevron. Only the value area shimmers.
+- `SkeletonRows(count:)` — one row, repeated.
+- `SkeletonSpacer()` — the spare width in a row.
+- `SkeletonReal(view)` — a real view inside the shape.
+- `.width`, `.height`, `.widthFraction`, `.padding`, `.aspect`, `.hugging`, `.radius` — size a block.
 
-Lines with nothing between them fuse into one rectangle with rounded outer corners, so a column at
-`spacing: 0` reads as one surface. A gap of any size keeps them separate.
-
-Blocks placed by hand come last:
+Lines with no gap between them in a `spacing: 0` column join into one rectangle with rounded outer
+corners. Any gap keeps them apart. Blocks placed by hand come last:
 
 ```swift
 let layout = UIStackView(arrangedSubviews: [
@@ -146,20 +198,20 @@ the rest of the app's theming:
 
 ```swift
 SkeletonTheme.current = SkeletonTheme(
-    base: .skeletonBase,
-    highlight: .skeletonHighlight
+    base: SkeletonTheme.defaultBase,
+    highlight: SkeletonTheme.defaultHighlight
 )
 ```
 
 `base` and `highlight` are the block and band colours; both defaults follow light and dark mode.
-`cornerRadius` defaults to 8, and a loading field takes its surface, border, text colour, font,
-height, radius and padding from the same theme.
+`cornerRadius` defaults to 8. A loading field takes its surface, border, text colour, font, height,
+radius and padding from the same theme.
 
 ### Timing
 
-`shimmerDuration` is one pass (1.7 s), `shimmerMinRest` the pause with the band off screen between
-passes (0.25 s), and `shimmerStagger` how far apart neighbouring pieces sweep (0.1 s; zero puts them
-back in phase).
+`shimmerDuration` is the time one sweep takes (1.7 s). `shimmerMinRest` is the pause with the band
+off screen between sweeps (0.25 s). `shimmerStagger` sets how far apart neighbouring cards sweep
+(0.1 s). Zero sweeps them together.
 
 ```swift
 SkeletonTheme.current = SkeletonTheme(shimmerDuration: 2.0, shimmerMinRest: 0.4)
@@ -197,8 +249,11 @@ SkeletonTheme.current = SkeletonTheme(
 
 ## Try the demo
 
-`Demo/` holds a small UIKit app with a card feed and a loading toggle. Open
-`Demo/SkeletonsDemo.xcodeproj` in Xcode and run it; it builds against this package by relative path.
+`Demo/` holds a small UIKit app that runs the screen above: sample posts skeletonized, a simulated
+two-second fetch, then the real feed. It also has the theme controls the later sections describe.
+
+Open `Demo/SkeletonsDemo.xcodeproj` in Xcode and run it; it builds against this package by relative
+path.
 
 ## Contributing
 
