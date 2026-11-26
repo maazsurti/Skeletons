@@ -1,322 +1,46 @@
 # Skeletons
 
-Skeleton screens for UIKit: grey placeholder blocks laid out like a screen's content, with one
-highlight band crossing them while a request is in flight.
+Loading placeholders for UIKit: grey blocks laid out like the screen's content, with one shimmer
+band crossing them while a request is in flight.
 
-## The problem
-
-A screen with nothing to show yet is a blank view or a spinner. Building the placeholder by hand
-means a second copy of the screen's layout to keep in step, and a skeleton that appears for one
-frame on a fast load reads as a flicker.
-
-## What it looks like
-
-The screen shows the shape of what is coming — a title line, list rows, a card, a form field — in
-the theme's placeholder colour, in the place the real content will take. One band crosses the
-screen and the blocks take it in document order, so a card of five lines sweeps as one surface. A
-load that runs past 150 ms shows the skeleton for at least 300 ms, then cross-dissolves into the
-content over 200 ms; a faster load shows the content with no skeleton at all.
-
-## When to use it
-
-Use it on a UIKit screen whose content arrives from work that leaves a gap: a request, a database
-read, an image decode.
-
-The package draws `UIView` trees and ships no SwiftUI product. A SwiftUI screen needs its own
-placeholder, such as `.redacted(reason: .placeholder)`.
-
-Skip it on a screen that already holds content — a cached list, a form the user is filling — and
-for a wait that blocks the whole app, where a spinner states the wait more directly.
-
-## At a glance
+![A card feed loading on the default theme: the shimmer band crosses the cards, then the text and photos appear](Docs/Media/hero.gif)
 
 ```swift
 import Skeletons
 
-let skeletonView = OrderCardView(order: .sample).skeletonized()
-
-let switcher = SkeletonSwitcher(skeleton: skeletonView, content: contentView)
-switcher.startLoading()
+let skeleton = OrderCardView(order: .sample).skeletonized()
 ```
 
-Place `skeletonView` and `contentView` in the same frame, one over the other, and call
-`switcher.showContent()` when the response arrives. The view passed in is a throwaway template:
-`skeletonized()` takes it into the skeleton and alters it.
+That is the whole setup. `skeletonized()` reads a real view filled with sample data and stands in
+for it, so each block lands where the content will. Every block shimmers, the screen reads as one
+VoiceOver "Loading" element, Reduce Motion swaps the sweep for a pulse, and right-to-left layouts
+sweep from the trailing edge.
 
-## What you get
-
-- **The real view's own geometry.** `skeletonized()` reads a view filled with sample data and stands
-  in for it: each leaf gets a block constrained to it, so the placeholder lands where the content
-  will.
-- **A custom shape when the view cannot give one.** `SkeletonLayout` takes lines, blocks, photos,
-  cards, rows and repeats; the theme supplies the spacing, radii and line heights. The same blocks
-  can be placed by hand in a stack view.
-- **Fields keep their chrome.** `SkeletonField` and `SkeletonPickerRow` draw the real surface,
-  border, height, padding, label, accessory and chevron; only the value area shimmers.
-- **Accessible by default.** The screen's skeleton reads as one VoiceOver "Loading" element; Reduce
-  Motion replaces the sweep with an opacity pulse; right-to-left layouts sweep from the trailing edge.
-- **Themeable.** Colours, radii, timing and the loading copy live in one `SkeletonTheme`. Every value
-  has a default, and the default colours follow light and dark mode.
-
-## Requirements
-
-iOS 17+, Swift 6 tools (Swift 5 language mode).
+![The same card feed as a skeleton on the left and the loaded content on the right](Docs/Media/default-side-by-side.png)
 
 ## Install
 
 In `Package.swift`:
 
 ```swift
-.package(url: "https://github.com/maazsurti/Skeletons.git", from: "1.4.0")
+.package(url: "https://github.com/maazsurti/Skeletons.git", from: "1.5.0")
 ```
 
-In Xcode: **File → Add Package Dependencies…**, paste the URL, and set the rule to *Up to Next Major*
-at 1.4.0. The product is **`Skeletons`**.
+In Xcode: **File → Add Package Dependencies…**, paste the URL, and set the rule to *Up to Next
+Major*. The product is **`Skeletons`**.
 
-## Quick start
+iOS 17+, Swift 6 tools.
 
-Build the view as the loaded screen builds it, fill it with sample data, and skeletonize it. The
-theme is optional: every value has a default, and `SkeletonTheme.current` is read when a skeleton is
-built.
+## Show it while a screen loads
 
-```swift
-import Skeletons
+![The default skeleton on a card feed: header, two copy lines and a photo placeholder per card](Docs/Media/default-skeleton.png)
 
-let skeletonView = OrderCardView(order: .sample).skeletonized()
-
-// Place skeletonView and contentView in the same frame, one over the other.
-let switcher = SkeletonSwitcher(skeleton: skeletonView, content: contentView)
-
-switcher.startLoading()
-service.fetch { result in
-    apply(result)
-    switcher.showContent()
-}
-```
-
-`skeletonView` is a `SkeletonContainerView`, so the blocks inside it are hidden from VoiceOver and
-the screen reads a single "Loading".
-
-When no real view expresses the shape, declare it instead:
+Build the view as the loaded screen builds it, fill it with sample data, skeletonize it, and hand
+both views to a switcher placed in the same frame:
 
 ```swift
-let skeletonView = SkeletonLayout {
-    SkeletonLine(.title)
-    SkeletonRows(count: 5, spacing: 12, .listRow)
-}.makeView()
-```
-
-## Set up
-
-Set the theme once at launch, beside the rest of the app's theming:
-
-```swift
-import Skeletons
-
-SkeletonTheme.current = SkeletonTheme(
-    base: .skeletonBase,
-    highlight: .skeletonHighlight,
-    cornerRadius: 8,
-    shimmerDuration: 1.7,
-    shimmerStagger: 0.10,
-    shimmerMinRest: 0.25,
-    loadingText: String(localized: "Loading"),
-    isRightToLeft: { Locale.current.language.characterDirection == .rightToLeft }
-)
-```
-
-`base` and `highlight` are the app's own block and band colours. Every value has a default, so
-`SkeletonTheme()` is complete as it is, and the default colours are dynamic and follow light and
-dark mode.
-
-A loading field takes `fieldSurface`, `fieldBorder`, `fieldText`, `fieldTextFont`, `fieldHeight`,
-`fieldRadius` and `fieldPadding` from the same theme. Point them at the app's field metrics so the
-field sits where the real field sits.
-
-## Skeletonize the real view
-
-A screen's skeleton is its own real view, filled with sample data. Build the view as the loaded
-screen builds it and skeletonize it:
-
-```swift
-let skeletonView = OrderCardView(order: .sample).skeletonized()
-```
-
-`skeletonized()` reparents the view into the skeleton and alters it. Build a throwaway template and
-pass that, never the live view.
-
-`skeletonized()` walks the template, hides each leaf that stands in for fetched content and inserts
-a `SkeletonView` constrained to that leaf, so every block takes the place the real view's Auto Layout
-gives it. Nothing is laid out at call time. The result is a `SkeletonContainerView`, ready for
-`SkeletonSwitcher`.
-
-The walk reads the tree in this order:
-
-- A label becomes its text line: the label's own width and line box, at half the point size for a
-  radius, aligned as the label is. A multi-line label becomes one block over its box.
-- A vertical stack wearing only labels, with no spacing, is one block: one shape, not a stack of bars.
-- An image view becomes a block at its corner radius, including a radius its own layout gives it.
-- A text field keeps its chrome, loses its text and placeholder, and shimmers one value line. A
-  search field stays real. An editable text view keeps its geometry and loses its text colour; a
-  read-only one is one block.
-- A button, switch or slider becomes one block at its corner radius. A custom control holding more
-  than one item follows the chrome rules below instead.
-- A separator under 2 pt stays real.
-- A view with a background, border or shadow keeps that chrome and its contents are skeletonized,
-  unless it holds one item or fewer or has both its width and its height fixed — then it is one block.
-- A visual effect view and a scroll view are walked through.
-- Any other container is walked through; a leaf that draws nothing is a spacer.
-
-Labels and buttons are fetched content as far as the walk knows, so they become blocks. Keep the
-screen's own copy — titles, headings, field labels, chips, action buttons — with `keeping:` or
-`.static`, and never keep a value the response fills: the sample money would stay on screen.
-
-```swift
-let card = OrderCardView(order: .sample)
-let skeletonView = card.skeletonized(
-    only: [card.sections],
-    keeping: [card.heading, card.actionButton],
-    ignoring: [card.badge]
-)
-```
-
-- `only` — skeletonize these views; everything else stays real.
-- `keeping` — these views stay real, in place.
-- `ignoring` — these views keep their space and draw nothing.
-
-A view can state the same thing for itself, and `Skeletonized` uses the same rules inside an element
-tree:
-
-```swift
-let skeletonView = SkeletonLayout {
-    Skeletonized {
-        let card = OrderCardView(order: .sample)
-        card.heading.skeletonMode(.static)
-        card.banner.skeletonMode(.block)
-        card.actionButton.skeletonMode(.ignored)
-        return card
-    }
-    SkeletonRows(count: 3, spacing: 12) {
-        Skeletonized { OrderCardView(order: .sample) }
-    }
-}.makeView()
-```
-
-- `.automatic` — the rules above.
-- `.block` — one block over the whole view, at the view's corner radius.
-- `.static` — the view stays real.
-- `.ignored` — the space is kept and nothing is drawn.
-
-The innermost stated mode wins, so a `.static` view still takes an `.automatic` descendant. An
-argument list beats a mode set on the same view. Only a view the caller keeps static receives a
-touch, so a template's tap gestures cannot fire on sample data and a kept control stays usable.
-
-## Compose a custom skeleton
-
-This is the fallback: reach for it when no real view exists to fill with sample data, or when the
-rules still read the shape wrong after `skeletonMode`, `only`, `keeping` and `ignoring`. Declare the
-shape. Spacing, radii and line heights come from the theme:
-
-```swift
-let skeleton = SkeletonLayout {
-    SkeletonLine(.title)
-    SkeletonCard(padding: 14, background: .surface, border: .border) {
-        SkeletonRow(spacing: 14) {
-            SkeletonPhoto(width: 84, height: 64, radius: 12)
-            SkeletonColumn(spacing: 2) {
-                SkeletonLine(.headline, widthFraction: 0.6)
-                SkeletonLine(.body, widthFraction: 0.9)
-            }
-        }
-    }
-    SkeletonRows(count: 5, spacing: 12, padding: 4, .listRow)
-}
-```
-
-Blocks carry no layout of their own, so a screen can also place them by hand:
-
-```swift
-let title = SkeletonView.line(height: 16, widthFraction: 0.6)
-let avatar = SkeletonView.circle(diameter: 40)
-let body = SkeletonView.block(height: 72, cornerRadius: 12)
-
-let layout = UIStackView(arrangedSubviews: [avatar, title, body])
-layout.axis = .vertical
-layout.spacing = 12
-
-let skeleton = SkeletonContainerView(content: layout)
-```
-
-- `SkeletonView.line(height:width:widthFraction:)` — one line of text. Without a width it takes the
-  width its container gives it; `widthFraction` is a share of the superview's width.
-- `SkeletonView.circle(diameter:)` — avatars, icons, thumbnails.
-- `SkeletonView.block(height:cornerRadius:)` — anything else; give it constraints from the layout.
-- `SkeletonView(cornerRadius:corners:)` — the plain block, for a corner radius the factories do not
-  cover. `corners` names the corners that round.
-
-A width a call site states is a preference: the block keeps it while it fits and gives way in a
-container that is narrower, so a wide line never forces its host into an unsatisfiable layout. A
-height is the block's own assertion and always holds.
-
-`SkeletonContainerView` gives VoiceOver one "Loading" element in place of the individual blocks and
-takes its label from `loadingText`. Its `isShimmering` covers every block inside it.
-
-## Elements
-
-- `SkeletonLayout` — the root of a custom skeleton: a vertical arrangement, one
-  `SkeletonContainerView`, one VoiceOver "Loading". Takes `spacing`, `padding` and `alignment`.
-- `SkeletonColumn` / `SkeletonRow` — vertical and horizontal stacks, with `spacing`, `padding` and
-  `alignment`; columns lead by default, rows center. A row's height is its tallest element and a
-  row never stretches a child vertically, so a short copy column beside a tall photo lays out.
-- `SkeletonLine(style, width:widthFraction:)` — a text line. `SkeletonTextStyle` is `.title`,
-  `.headline`, `.body`, `.caption` or `.custom(size)`; the height comes from
-  `SkeletonTheme.lineHeight`.
-- `SkeletonBlock(height:width:radius:)`, `SkeletonPhoto(width:height:aspect:radius:)`,
-  `SkeletonCircle(diameter:)` — everything else a response fills.
-- `SkeletonCard(padding:spacing:radius:background:border:shadow:)` — the real card's chrome around
-  its content.
-- `SkeletonField(placeholder:icon:leading:showsChevron:valueWidthFraction:height:radius:padding:)` —
-  a text field in the loaded field's chrome. No placeholder is drawn: the shimmering value line is
-  the text, and the placeholder copy, when given, only sets that line's width.
-- `SkeletonPickerRow(label:icon:leading:showsChevron:valueWidthFraction:height:radius:padding:)` — a
-  field whose value is chosen elsewhere: label and chevron stay, the value after them shimmers.
-- `SkeletonRows(count:spacing:padding:_:)` — N copies of a preset, or of a shape written at the call
-  site.
-- `SkeletonSpacer()` — takes the spare width in a row.
-- `SkeletonReal(view)` — a real view (copy, a heading, a control) inside the shape.
-- `Skeletonized { view }` — a real view filled with sample data, skeletonized from its own layout;
-  the same as calling `skeletonized()` on it.
-- Presets: `.listRow`, `.cardRow`, `.priceColumn`, `.formField`, `.pickerRow`.
-- Modifiers on any element: `.width(_:)`, `.height(_:)`, `.widthFraction(_:)`, `.padding(_:)`,
-  `.aspect(_:)`, `.hugging`. Lines, blocks and photos also take `.radius(_:)`.
-
-A layout accepts loops and conditionals: `for` and `if` work inside any container.
-
-Lines with nothing between them — a column or layout at `spacing: 0`, with no padding on the
-elements — draw as one rectangle: one continuous fill with four rounded outer corners and no seam
-where the lines meet. A gap of any size keeps them as separate bars. When the flush lines differ in
-width the rectangle takes the widest width they ask for, so it covers every line.
-
-A field is not a block. `SkeletonField` and `SkeletonPickerRow` draw the loaded control's chrome and
-real copy, and shimmer only the region the value occupies.
-
-A loading field shows no placeholder: the value line stands in for the text. An accessory the app
-already has — a country picker, an icon — stays real, keeps its own size and the field's full
-height, and takes no shimmer of its own; pass the real view as `leading: SkeletonReal(view)` and
-only the value area after it shimmers. An accessory whose own content is fetched takes a skeleton
-element in the same place, and that element is what shimmers then.
-
-## Swap it for the content
-
-`SkeletonSwitcher` owns the timings, not the layout. Put the skeleton and the content in the same
-place, one over the other, and tell the switcher what happened:
-
-```swift
-private lazy var switcher = SkeletonSwitcher(
-    skeleton: skeletonView,
-    content: contentView,
-    scheduler: MainQueueSkeletonScheduler()
-)
+let skeleton = OrderCardView(order: .sample).skeletonized()
+let switcher = SkeletonSwitcher(skeleton: skeleton, content: contentView)
 
 func load() {
     switcher.startLoading()
@@ -327,63 +51,158 @@ func load() {
 }
 ```
 
-- The skeleton appears only if the load is still running after 150 ms.
-- Once it appears it stays for at least 300 ms.
-- Skeleton and content cross-dissolve over 200 ms.
-- `startLoading()` again puts the skeleton back with the same timings, so a retry behaves like the
-  first load.
+A load that finishes inside 150 ms shows the content with no skeleton at all. One that takes longer
+shows the skeleton for at least 300 ms, then cross-dissolves into the content over 200 ms.
 
-Pass a `SkeletonSwitcher.Timing` to change the three durations. Both views need a superview. The
-switcher changes only their opacity; read `isSkeletonVisible` for anything else that has to know
-which one is on screen.
+The view passed to `skeletonized()` is a throwaway template: it is reparented into the skeleton and
+altered. Never pass the live view.
 
-## Behaviour
+## What turns into a block
 
-- **One band, one wave over the components.** Every block positions its highlight in window
-  coordinates on its screen's clock: a `SkeletonContainerView` starts its wave at its first
-  component's leading edge when it comes on screen. Each component takes the next phase in document
-  order: the topmost component starts the wave, and each one below it crosses `shimmerStagger`
-  seconds after the one above it, so a screen's offsets run 0, 0.1, 0.2 … A component is the piece
-  the eye reads as one — a card, a row, a field, a section — and every block inside it crosses with
-  it, so a card of five blocks sweeps as one surface. A piece the response does not fill, such as a
-  real banner or a heading that is already text, takes no place. `shimmerStagger` 0 puts every
-  component back in phase. A component whose turn has not come holds its band off the window. A
-  block keeps its place while it is on screen, so a scroll, a relayout, a trait change or a second
-  block arriving cannot move its phase.
-- **A wave that starts with its screen.** A container that returns to the window, comes back from
-  hidden, is switched on again, or is revealed by `SkeletonSwitcher` starts its wave over from the
-  leading edge. Blocks placed by hand share one clock per window, and the next screen starts at the
-  first place on a fresh clock once the last block of the one before stops. A screen that finishes
-  appearing, or otherwise reveals the skeleton late, calls `restartSweep()` on its containers so the
-  wave starts when the screen settles.
-- **A cycle long enough for the whole wave.** One pass takes `shimmerDuration`, then the band waits
-  off the window for `shimmerMinRest` (0.25 s by default) before it repeats; the screen repeats after
-  the pass, that rest and the time the wave needs to reach its last component — the stagger times the
-  gaps between components. No two components of a screen share a phase, however long the screen is.
-  The rest is added on top of the wave, so a screen with many components keeps both its spread and
-  its pause.
-- **A lean of 45°.** The highlight is a stripe tipped to a quarter turn, leaning the way the pass
-  runs — a "/" from left to right, mirrored from right to left. Every block of a component draws
-  that stripe on the same line, so a card's lines and its photo read one slash rather than a stepped
-  band per line; the stripe's ends run past each block as it crosses. Its falloff is a soft bell
-  rather than a single peak, so the edge of the band has no hard line.
-- **A seamless loop with a pause between repeats.** The band's travel is the window's, not each
-  block's own edges, so every block is crossed by the same band whatever its width or origin. A
-  leaning stripe also spans the component's height, so the pass runs that much further to start and
-  finish with the whole stripe clear of the window; the repeat happens with nothing on screen, and a
-  block that scrolls carries its band with it rather than re-attaching it mid-pass.
-- **Right to left.** When `isRightToLeft` returns true the sweep enters from the trailing edge and the
-  wave runs from the trailing edge across.
-- **Reduce Motion.** A gentle opacity pulse (0.55 ↔ 1) replaces the sweep, and the switcher swaps
-  views without a dissolve. Both follow the setting while the app runs.
-- **Nothing runs while hidden.** A block off-window or hidden stops its animation;
-  `isShimmering = false` stops it outright.
+`skeletonized()` looks at every view in the template and swaps the ones that will hold fetched
+content for a grey block of the same size:
+
+- A label becomes a bar at its own width and line box; a multi-line label becomes one block.
+- An image view becomes a block at its corner radius.
+- A button, switch or slider becomes one block.
+- A text field keeps its chrome and shimmers one value line; a search field stays real.
+- A view with a background, border or shadow keeps it, and the views inside it are handled the same way.
+- A separator under 2 pt stays real.
+
+Labels and buttons count as fetched content, so keep the screen's own copy — titles, headings,
+field labels, chips, action buttons:
+
+```swift
+let card = OrderCardView(order: .sample)
+let skeleton = card.skeletonized(
+    only: [card.sections],
+    keeping: [card.heading, card.actionButton],
+    ignoring: [card.badge]
+)
+```
+
+- `only` — skeletonize these views and leave the rest real.
+- `keeping` — these views stay real, in place.
+- `ignoring` — these views keep their space and draw nothing.
+
+A view can state the same thing for itself with `skeletonMode(_:)`: `.automatic`, `.block`,
+`.static` or `.ignored`. The innermost stated mode wins. `Skeletonized { view }` runs the same rules
+inside a layout.
+
+## Build one by hand
+
+When no real view expresses the shape, declare it. Spacing, radii and line heights come from the
+theme:
+
+```swift
+let skeleton = SkeletonLayout {
+    SkeletonLine(.title)
+    SkeletonCard(padding: 14) {
+        SkeletonRow(spacing: 14) {
+            SkeletonPhoto(width: 84, height: 64, radius: 12)
+            SkeletonColumn(spacing: 2) {
+                SkeletonLine(.headline, widthFraction: 0.6)
+                SkeletonLine(.body, widthFraction: 0.9)
+            }
+        }
+    }
+    SkeletonRows(count: 5, spacing: 12, .listRow)
+}.makeView()
+```
+
+- `SkeletonLayout`, `SkeletonColumn`, `SkeletonRow` — the arrangement; each takes `spacing`,
+  `padding` and `alignment`.
+- `SkeletonLine(.title)` — a text line, in `.title`, `.headline`, `.body`, `.caption` or
+  `.custom(size)`.
+- `SkeletonBlock`, `SkeletonPhoto`, `SkeletonCircle` — everything else a response fills.
+- `SkeletonCard` — a real card's chrome around its content.
+- `SkeletonField` and `SkeletonPickerRow` — a loading field or picker: real chrome, label, icon and
+  chevron, with only the value area shimmering.
+- `SkeletonRows(count:)` — N copies of a preset or a shape written at the call site.
+- `SkeletonSpacer()` and `SkeletonReal(view)` — the spare width, and a real view inside the shape.
+- Modifiers: `.width`, `.height`, `.widthFraction`, `.padding`, `.aspect`, `.hugging`, `.radius`.
+
+Lines with nothing between them fuse into one rectangle with rounded outer corners, so a column at
+`spacing: 0` reads as one surface. A gap of any size keeps them separate.
+
+Blocks placed by hand come last:
+
+```swift
+let layout = UIStackView(arrangedSubviews: [
+    SkeletonView.circle(diameter: 40),
+    SkeletonView.line(height: 16, widthFraction: 0.6),
+    SkeletonView.block(height: 72),
+])
+layout.axis = .vertical
+layout.spacing = 12
+
+let skeleton = SkeletonContainerView(content: layout)
+```
+
+## Make it yours
+
+Every value has a default, so `SkeletonTheme()` is complete. Set the theme once at launch, beside
+the rest of the app's theming:
+
+```swift
+SkeletonTheme.current = SkeletonTheme(
+    base: .skeletonBase,
+    highlight: .skeletonHighlight
+)
+```
+
+`base` and `highlight` are the block and band colours; both defaults follow light and dark mode.
+`cornerRadius` defaults to 8, and a loading field takes its surface, border, text colour, font,
+height, radius and padding from the same theme.
+
+### Timing
+
+`shimmerDuration` is one pass (1.7 s), `shimmerMinRest` the pause with the band off screen between
+passes (0.25 s), and `shimmerStagger` how far apart neighbouring pieces sweep (0.1 s; zero puts them
+back in phase).
+
+```swift
+SkeletonTheme.current = SkeletonTheme(shimmerDuration: 2.0, shimmerMinRest: 0.4)
+```
+
+### One line across the screen
+
+By default each card or section sweeps on its own, a little after the one above it.
+`shimmerAlignment: .window` lines every skeleton on the screen up instead, so one band crosses cards,
+sections and separate skeletons as a single continuous stripe.
+
+```swift
+SkeletonTheme.current = SkeletonTheme(shimmerAlignment: .window)
+```
+
+### The stripe's angle
+
+`shimmerAngle` leans the stripe, in degrees from vertical. `0` draws an upright band, `20` is the
+default, `45` is a steep diagonal, and a negative value leans the other way. Anything past 80° either
+side is capped at 80°. Right-to-left layouts mirror it, whichever angle you set.
+
+```swift
+SkeletonTheme.current = SkeletonTheme(shimmerAngle: 30)
+```
+
+### Right to left
+
+`isRightToLeft` decides the direction of the sweep. Point it at the app's own language state:
+
+```swift
+SkeletonTheme.current = SkeletonTheme(
+    isRightToLeft: { UIApplication.shared.userInterfaceLayoutDirection == .rightToLeft }
+)
+```
+
+## Try the demo
+
+`Demo/` holds a small UIKit app with a card feed and a loading toggle. Open
+`Demo/SkeletonsDemo.xcodeproj` in Xcode and run it; it builds against this package by relative path.
 
 ## Contributing
 
-Adding or changing a skeleton in a host app: read [`AGENTS.md`](./AGENTS.md) first. It carries the
-rules — what to grey out and what to keep real, how a field loads, when a selection brings the
-skeleton back, the timings, and the accessibility requirements.
+Adding or changing a skeleton in an app: read [`AGENTS.md`](./AGENTS.md) first.
 
 `Tests/SkeletonsTests/` runs with
 `xcodebuild test -scheme Skeletons -destination 'platform=iOS Simulator,id=<udid>'`.
