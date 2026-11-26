@@ -33,8 +33,13 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         options connectionOptions: UIScene.ConnectionOptions
     ) {
         guard let windowScene = scene as? UIWindowScene else { return }
+        let options = LaunchOptions()
+        let root: UIViewController = switch options.screen {
+        case .feed: FeedViewController(options: options)
+        case .manual: ManualSkeletonViewController()
+        }
         let window = UIWindow(windowScene: windowScene)
-        window.rootViewController = UINavigationController(rootViewController: FeedViewController())
+        window.rootViewController = UINavigationController(rootViewController: root)
         window.makeKeyAndVisible()
         self.window = window
     }

@@ -96,6 +96,8 @@ struct Post {
 /// built.
 final class FeedViewController: UIViewController {
 
+    private let options: LaunchOptions
+
     private let scroll = UIScrollView()
     private let host = UIView()
     private let page = UIStackView()
@@ -108,6 +110,17 @@ final class FeedViewController: UIViewController {
     private let coloursSwitch = UISwitch()
 
     private var switcher: SkeletonSwitcher?
+    private var heroLoop: HeroLoop?
+
+    init(options: LaunchOptions = LaunchOptions()) {
+        self.options = options
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) is not supported")
+    }
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -129,11 +142,15 @@ final class FeedViewController: UIViewController {
         scroll.addSubview(page)
         view.addSubview(scroll)
 
+        let bottom = controls.isHidden
+            ? view.safeAreaLayoutGuide.bottomAnchor
+            : controls.topAnchor
+
         NSLayoutConstraint.activate([
             scroll.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             scroll.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 18),
             scroll.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -18),
-            scroll.bottomAnchor.constraint(equalTo: controls.topAnchor, constant: -12),
+            scroll.bottomAnchor.constraint(equalTo: bottom, constant: -12),
             page.topAnchor.constraint(equalTo: scroll.contentLayoutGuide.topAnchor),
             page.leadingAnchor.constraint(equalTo: scroll.contentLayoutGuide.leadingAnchor),
             page.trailingAnchor.constraint(equalTo: scroll.contentLayoutGuide.trailingAnchor),
@@ -142,21 +159,50 @@ final class FeedViewController: UIViewController {
         ])
     }
 
+    private func addToHost(_ view: UIView) {
+        view.translatesAutoresizingMaskIntoConstraints = false
+        host.addSubview(view)
+        NSLayoutConstraint.activate([
+            view.topAnchor.constraint(equalTo: host.topAnchor),
+            view.leadingAnchor.constraint(equalTo: host.leadingAnchor),
+            view.trailingAnchor.constraint(equalTo: host.trailingAnchor),
+            view.bottomAnchor.constraint(equalTo: host.bottomAnchor),
+        ])
+    }
+
     /// The screen's one load: sample posts skeletonized, a simulated fetch, then the real feed.
     private func load() {
+        heroLoop?.stop()
+        heroLoop = nil
+        switcher = nil
         host.subviews.forEach { $0.removeFromSuperview() }
 
+        switch options.state {
+        case .loading:
+            addToHost(FeedViewController.makeFeed(posts: Post.samples).skeletonized())
+        case .loaded:
+            addToHost(FeedViewController.makeFeed(posts: Post.fetched))
+        case .run:
+            loading()
+        }
+    }
+
+    private func loading() {
         let skeleton = FeedViewController.makeFeed(posts: Post.samples).skeletonized()
         let content = UIView()
-        for view in [skeleton, content] {
-            view.translatesAutoresizingMaskIntoConstraints = false
-            host.addSubview(view)
-            NSLayoutConstraint.activate([
-                view.topAnchor.constraint(equalTo: host.topAnchor),
-                view.leadingAnchor.constraint(equalTo: host.leadingAnchor),
-                view.trailingAnchor.constraint(equalTo: host.trailingAnchor),
-                view.bottomAnchor.constraint(equalTo: host.bottomAnchor),
-            ])
+        addToHost(skeleton)
+        addToHost(content)
+
+        if options.loops {
+            addFetchedFeed(to: content)
+            let loop = HeroLoop(
+                skeleton: skeleton,
+                content: content,
+                components: Post.fetched.count
+            )
+            heroLoop = loop
+            loop.start()
+            return
         }
 
         let switcher = SkeletonSwitcher(skeleton: skeleton, content: content)
@@ -166,17 +212,21 @@ final class FeedViewController: UIViewController {
         // A 2 s fetch, so the skeleton has time to show.
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
             guard let self else { return }
-            let feed = FeedViewController.makeFeed(posts: Post.fetched)
-            feed.translatesAutoresizingMaskIntoConstraints = false
-            content.addSubview(feed)
-            NSLayoutConstraint.activate([
-                feed.topAnchor.constraint(equalTo: content.topAnchor),
-                feed.leadingAnchor.constraint(equalTo: content.leadingAnchor),
-                feed.trailingAnchor.constraint(equalTo: content.trailingAnchor),
-                feed.bottomAnchor.constraint(equalTo: content.bottomAnchor),
-            ])
+            self.addFetchedFeed(to: content)
             self.switcher?.showContent()
         }
+    }
+
+    private func addFetchedFeed(to content: UIView) {
+        let feed = FeedViewController.makeFeed(posts: Post.fetched)
+        feed.translatesAutoresizingMaskIntoConstraints = false
+        content.addSubview(feed)
+        NSLayoutConstraint.activate([
+            feed.topAnchor.constraint(equalTo: content.topAnchor),
+            feed.leadingAnchor.constraint(equalTo: content.leadingAnchor),
+            feed.trailingAnchor.constraint(equalTo: content.trailingAnchor),
+            feed.bottomAnchor.constraint(equalTo: content.bottomAnchor),
+        ])
     }
 
     /// The feed the screen shows, loading and loaded alike: one function for both.
@@ -194,22 +244,25 @@ final class FeedViewController: UIViewController {
 
     private func buildControls() {
         let loadingButton = UIButton(type: .system, primaryAction: UIAction { [weak self] _ in
-            self?.reloadFeed()
+            self?.load()
         })
         loadingButton.setTitle("Load again", for: .normal)
         loadingButton.titleLabel?.font = .preferredFont(forTextStyle: .headline)
 
-        alignmentControl.selectedSegmentIndex = 1
+        alignmentControl.selectedSegmentIndex = options.alignment == .window ? 1 : 0
         alignmentControl.addAction(UIAction { [weak self] _ in self?.applyTheme() }, for: .valueChanged)
 
         angleSlider.minimumValue = -80
         angleSlider.maximumValue = 80
-        angleSlider.value = 20
+        angleSlider.value = Float(options.angle ?? 20)
         angleSlider.addAction(UIAction { [weak self] _ in self?.applyTheme() }, for: .valueChanged)
         angleLabel.font = .preferredFont(forTextStyle: .caption1)
         angleLabel.textColor = .secondaryLabel
 
+        rtlSwitch.isOn = options.isRightToLeft
         rtlSwitch.addAction(UIAction { [weak self] _ in self?.applyTheme() }, for: .valueChanged)
+
+        coloursSwitch.isOn = options.usesCustomColours
         coloursSwitch.addAction(UIAction { [weak self] _ in self?.applyTheme() }, for: .valueChanged)
 
         let angleRow = UIStackView(arrangedSubviews: [angleLabel, angleSlider])
@@ -227,6 +280,7 @@ final class FeedViewController: UIViewController {
         controls.addArrangedSubview(angleRow)
         controls.addArrangedSubview(row(title: "Right to left", control: rtlSwitch))
         controls.addArrangedSubview(row(title: "Custom colours", control: coloursSwitch))
+        controls.isHidden = !options.showsControls
 
         view.addSubview(controls)
         NSLayoutConstraint.activate([
@@ -244,10 +298,6 @@ final class FeedViewController: UIViewController {
         row.axis = .horizontal
         row.alignment = .center
         return row
-    }
-
-    private func reloadFeed() {
-        load()
     }
 
     // MARK: - Theme
