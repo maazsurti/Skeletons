@@ -75,16 +75,24 @@ struct Post {
     let headline: String
     let body: String
 
+    /// What the feed shows while it loads: a few posts, so the skeleton has the shape of a full list.
     static let samples = [
         Post(author: "Amina", headline: "A quiet morning", body: "Coffee, a notebook and an hour with nothing to do."),
         Post(author: "Jonas", headline: "New headphones", body: "The sound is warm and the case fits in a coat pocket."),
         Post(author: "Priya", headline: "Back from the coast", body: "Three days of wind, and the best fish I have eaten all year."),
+    ]
+
+    /// What the simulated fetch returns: the same count as `samples`, so the feed keeps its height
+    /// when the content replaces the skeleton.
+    static let fetched = [
         Post(author: "Tomas", headline: "Late light", body: "The sun came through the kitchen window and stayed for an hour."),
+        Post(author: "Lena", headline: "The long way home", body: "I took the road along the river and did not regret the extra hour."),
+        Post(author: "Marcus", headline: "Bread, third try", body: "The crust finally came out the way the book promised."),
     ]
 }
 
-/// The demo's one screen: a feed of cards with a loading toggle, and the theme options the README
-/// describes. A theme change rebuilds the skeleton, because a block reads the theme when it is
+/// The demo's one screen: a feed of cards that loads from sample posts, and the theme options the
+/// README describes. A theme change rebuilds the skeleton, because a block reads the theme when it is
 /// built.
 final class FeedViewController: UIViewController {
 
@@ -134,12 +142,12 @@ final class FeedViewController: UIViewController {
         ])
     }
 
-    /// The skeleton and the content in one frame, one over the other, with a switcher between them.
-    private func buildSwitcher() {
+    /// The screen's one load: sample posts skeletonized, a simulated fetch, then the real feed.
+    private func load() {
         host.subviews.forEach { $0.removeFromSuperview() }
 
-        let skeleton = FeedViewController.skeletonView()
-        let content = FeedViewController.contentView()
+        let skeleton = FeedViewController.makeFeed(posts: Post.samples).skeletonized()
+        let content = UIView()
         for view in [skeleton, content] {
             view.translatesAutoresizingMaskIntoConstraints = false
             host.addSubview(view)
@@ -155,27 +163,28 @@ final class FeedViewController: UIViewController {
         self.switcher = switcher
         switcher.startLoading()
 
-        guard ProcessInfo.processInfo.arguments.contains("--demo-auto") else { return }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.4) { [weak switcher] in
-            switcher?.showContent()
+        // A 2 s fetch, so the skeleton has time to show.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
+            guard let self else { return }
+            let feed = FeedViewController.makeFeed(posts: Post.fetched)
+            feed.translatesAutoresizingMaskIntoConstraints = false
+            content.addSubview(feed)
+            NSLayoutConstraint.activate([
+                feed.topAnchor.constraint(equalTo: content.topAnchor),
+                feed.leadingAnchor.constraint(equalTo: content.leadingAnchor),
+                feed.trailingAnchor.constraint(equalTo: content.trailingAnchor),
+                feed.bottomAnchor.constraint(equalTo: content.bottomAnchor),
+            ])
+            self.switcher?.showContent()
         }
     }
 
-    /// The screen's own feed, filled with sample data and skeletonized: the real layout, without a
-    /// second copy of it.
-    private static func skeletonView() -> UIView {
-        feedStack().skeletonized()
-    }
-
-    private static func contentView() -> UIView {
-        feedStack()
-    }
-
-    private static func feedStack() -> UIStackView {
+    /// The feed the screen shows, loading and loaded alike: one function for both.
+    private static func makeFeed(posts: [Post]) -> UIStackView {
         let stack = UIStackView()
         stack.axis = .vertical
         stack.spacing = 16
-        for post in Post.samples {
+        for post in posts {
             stack.addArrangedSubview(PostCell(post: post))
         }
         return stack
@@ -185,9 +194,9 @@ final class FeedViewController: UIViewController {
 
     private func buildControls() {
         let loadingButton = UIButton(type: .system, primaryAction: UIAction { [weak self] _ in
-            self?.toggleLoading()
+            self?.reloadFeed()
         })
-        loadingButton.setTitle("Toggle loading", for: .normal)
+        loadingButton.setTitle("Load again", for: .normal)
         loadingButton.titleLabel?.font = .preferredFont(forTextStyle: .headline)
 
         alignmentControl.selectedSegmentIndex = 1
@@ -237,13 +246,8 @@ final class FeedViewController: UIViewController {
         return row
     }
 
-    private func toggleLoading() {
-        guard let switcher else { return }
-        if switcher.isSkeletonVisible {
-            switcher.showContent()
-        } else {
-            switcher.startLoading()
-        }
+    private func reloadFeed() {
+        load()
     }
 
     // MARK: - Theme
@@ -266,6 +270,6 @@ final class FeedViewController: UIViewController {
             isRightToLeft: { isRightToLeft }
         )
 
-        buildSwitcher()
+        load()
     }
 }
