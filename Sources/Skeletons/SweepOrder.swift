@@ -52,7 +52,9 @@ enum SweepOrder {
     /// stays on screen, so a scroll, a re-register or a relayout cannot move it.
     static func place(of view: SkeletonView) -> Place {
         if let cached = view.sweepPlace { return cached }
-        let place = resolve(view)
+        let place = SkeletonTheme.current.shimmerAlignment == .window
+            ? windowPlace(of: view)
+            : resolve(view)
         view.sweepPlace = place
         return place
     }
@@ -135,6 +137,7 @@ enum SweepOrder {
     /// no block left in it is still sweeping, so the next screen starts at the first place on a
     /// fresh start.
     static func leftTheWave(_ view: SkeletonView) {
+        leaveWindowWave(view)
         guard let group = view.looseGroup, group.ledger.index(of: view) != NSNotFound else {
             return
         }
@@ -196,9 +199,88 @@ enum SweepOrder {
         }
         return false
     }
+
+    // MARK: - One wave per window
+
+    /// The place a block takes in its window's wave: the first place on the window's clock, kept
+    /// for every skeleton on that window.
+    static func windowPlace(of view: SkeletonView) -> Place {
+        guard let window = view.window else {
+            return Place(ordinal: 0, count: 1, start: CACurrentMediaTime())
+        }
+        let clock = windowClock(for: window)
+        clock.blocks.add(view)
+        view.windowClock = clock
+        return Place(ordinal: 0, count: 1, start: clock.start)
+    }
+
+    /// Takes `view` out of its window's wave, and drops the wave with its start once no block on the
+    /// window is sweeping, so the next screen starts from the leading edge.
+    static func leaveWindowWave(_ view: SkeletonView) {
+        guard let clock = view.windowClock else { return }
+        clock.blocks.remove(view)
+        view.windowClock = nil
+        guard clock.blocks.count == 0, let window = clock.window,
+              windowClocks.object(forKey: window) === clock
+        else { return }
+        windowClocks.removeObject(forKey: window)
+    }
+
+    /// Starts the window's wave again from the leading edge when `container` is the only skeleton
+    /// sweeping on it. A container that shares the window with another rejoins the wave already
+    /// running, so a screen cannot drag its neighbours' bands out of line.
+    static func restartWindowWave(for container: SkeletonContainerView) {
+        guard let window = container.window,
+              let clock = windowClocks.object(forKey: window)
+        else { return }
+        let sharesTheWindow = containers(in: window).contains {
+            $0 !== container && holdsSweepingBlock($0)
+        }
+        guard !sharesTheWindow else { return }
+        clock.start = CACurrentMediaTime()
+        for block in clock.blocks.allObjects {
+            block.sweepPlace = nil
+            block.rephase()
+        }
+    }
+
+    private static func holdsSweepingBlock(_ view: UIView) -> Bool {
+        if let block = view as? SkeletonView { return block.isSweeping }
+        return view.subviews.contains(where: holdsSweepingBlock)
+    }
+
+    private static func containers(in view: UIView) -> [SkeletonContainerView] {
+        var found: [SkeletonContainerView] = []
+        if let container = view as? SkeletonContainerView { found.append(container) }
+        for subview in view.subviews {
+            found.append(contentsOf: containers(in: subview))
+        }
+        return found
+    }
+
+    private static func windowClock(for window: UIWindow) -> WindowSweepClock {
+        if let clock = windowClocks.object(forKey: window) { return clock }
+        let clock = WindowSweepClock()
+        clock.window = window
+        windowClocks.setObject(clock, forKey: window)
+        return clock
+    }
+
+    private static let windowClocks = NSMapTable<UIWindow, WindowSweepClock>(
+        keyOptions: .weakMemory,
+        valueOptions: .strongMemory
+    )
 }
 
 // MARK: - Storage on the view tree
+
+/// The wave that runs across a whole window, when the theme asks for `.window` alignment: every
+/// skeleton on the window reads one start, so their bands make one line.
+final class WindowSweepClock {
+    weak var window: UIWindow?
+    var start: CFTimeInterval = CACurrentMediaTime()
+    let blocks = NSHashTable<SkeletonView>.weakObjects()
+}
 
 /// The blocks one window places by hand, and the instant their wave starts.
 final class LooseSweepGroup {

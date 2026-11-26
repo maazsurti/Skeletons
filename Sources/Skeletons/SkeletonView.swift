@@ -28,6 +28,10 @@ public final class SkeletonView: UIView {
     /// The window group this block was placed by, kept after the block leaves the window.
     weak var looseGroup: LooseSweepGroup?
 
+    /// The window-wide wave this block joined, kept after the block leaves the window so it can
+    /// leave the group it joined.
+    weak var windowClock: WindowSweepClock?
+
     weak var cornerSource: UIView?
 
     /// Whether this block is on screen and should take a place in the wave.
@@ -185,22 +189,47 @@ public final class SkeletonView: UIView {
     /// crossed by the same band whatever its width, and the band sits clear of the window at both
     /// ends of the pass.
     ///
-    /// The band is a stripe leaning 45°, so it covers `reach` points across as well as its own
-    /// width: half the reach hangs past each end, and the pass runs that much further to start and
-    /// finish with nothing of it on the window. `height` is the block's own height, which places the
-    /// stripe's middle on the block's middle, and `anchor` is the block's window x plus how far it
-    /// sits down its component — so every block of a component draws one line, tilted together.
+    /// The band is a stripe leaning `shimmerAngle` from vertical, so over `height` points of the
+    /// block it shifts by half the reach across, and it covers `reach` points across on top of its
+    /// own width: half the reach hangs past each end, and the pass runs that much further to start
+    /// and finish with nothing of it on the window. `anchor` places the stripe on its line, so
+    /// every block on the line draws one stripe, tilted together.
     static func sweepTravel(
         windowWidth: CGFloat,
         bandWidth: CGFloat,
         height: CGFloat,
         reach: CGFloat,
         anchor: CGFloat,
+        tangent: CGFloat,
         isRightToLeft: Bool
     ) -> (from: CGFloat, to: CGFloat) {
-        let leading = -bandWidth - anchor - height / 2
-        let trailing = windowWidth + reach - anchor - height / 2
+        let shift = height / 2 * abs(tangent)
+        let leading = -bandWidth - anchor - shift
+        let trailing = windowWidth + reach - anchor - shift
         return isRightToLeft ? (trailing, leading) : (leading, trailing)
+    }
+
+    /// Where a block sits on its line. `lineOriginY` is the top of the line: the block's component
+    /// for `.component` alignment, and the window for `.window`, so one line crosses every block of
+    /// a card, or of the screen. `reach` is how far across the stripe carries over `lineHeight`, and
+    /// `tangent` is signed, so a right-to-left line leans the other way.
+    static func sweepLine(
+        blockFrame: CGRect,
+        lineOriginY: CGFloat,
+        lineHeight: CGFloat,
+        tangent: CGFloat
+    ) -> (anchor: CGFloat, reach: CGFloat) {
+        (
+            blockFrame.minX + tangent * (blockFrame.minY - lineOriginY),
+            abs(tangent) * lineHeight
+        )
+    }
+
+    /// The pass a line takes, so the band moves at the pace the themed duration gives it: a lean or
+    /// a taller line that adds travel lengthens the pass instead of speeding the band up.
+    static func sweepPass(themed: TimeInterval, travelled: CGFloat, reference: CGFloat) -> TimeInterval {
+        guard reference > 0 else { return themed }
+        return themed * TimeInterval(Double(travelled / reference))
     }
 
     /// Attaches whatever this block should currently be running: its screen's sweep, the Reduce
@@ -223,23 +252,38 @@ public final class SkeletonView: UIView {
         stopPulse()
 
         let theme = SkeletonTheme.current
-        let pass = max(theme.shimmerDuration, 0.2)
-        let rest = max(theme.shimmerMinRest, 0)
+        let tangent = theme.shimmerTangent
+        let slope = theme.isRightToLeft() ? -tangent : tangent
+        let isWindowLine = theme.shimmerAlignment == .window
         let place = SweepOrder.place(of: self)
-        let offset = ShimmerTimeline.offset(ordinal: place.ordinal, stagger: theme.shimmerStagger)
-        let period = ShimmerTimeline.period(
-            pass: pass,
-            rest: rest,
-            components: place.count,
-            stagger: theme.shimmerStagger
-        )
+        let offset = isWindowLine ? 0 : ShimmerTimeline.offset(ordinal: place.ordinal, stagger: theme.shimmerStagger)
+        let rest = max(theme.shimmerMinRest, 0)
         let frame = convert(bounds, to: window)
         let component = SweepOrder.component(of: self)
         let componentFrame = component.convert(component.bounds, to: window)
-        // A block sits on its component's diagonal by its own window x, plus how far down the
-        // component it starts: every block of a card draws the same line, at any height.
-        let anchor = frame.minX + (frame.minY - componentFrame.minY)
-        let reach = max(componentFrame.height, bounds.height)
+        // A block sits on its line by its own window x, plus how far down the line it starts, so
+        // every block of a card — or of the window — draws the same stripe, at any height.
+        let line = SkeletonView.sweepLine(
+            blockFrame: frame,
+            lineOriginY: isWindowLine ? 0 : componentFrame.minY,
+            lineHeight: isWindowLine ? window.bounds.height : max(componentFrame.height, bounds.height),
+            tangent: slope
+        )
+        let reach = line.reach
+        let themed = max(theme.shimmerDuration, 0.2)
+        // The band covers the window's width plus its own width in the themed duration, whatever
+        // the lean adds to the travel, so its pace reads the same on a window-wide line as on a
+        // component's.
+        let pass = isWindowLine
+            ? SkeletonView.sweepPass(
+                themed: themed,
+                travelled: window.bounds.width + bandWidth + reach,
+                reference: window.bounds.width + bandWidth
+            )
+            : themed
+        let period = isWindowLine
+            ? pass + rest
+            : ShimmerTimeline.period(pass: pass, rest: rest, components: place.count, stagger: theme.shimmerStagger)
         let signature = [
             String(Double(window.bounds.width)),
             String(Double(bandWidth)),
@@ -247,6 +291,7 @@ public final class SkeletonView: UIView {
             String(Double(pass)),
             String(Double(period)),
             String(Double(offset)),
+            String(Double(theme.shimmerAngle)),
             String(theme.isRightToLeft()),
         ].joined(separator: "|")
 
@@ -258,7 +303,8 @@ public final class SkeletonView: UIView {
             bandWidth: bandWidth,
             height: bounds.height,
             reach: reach,
-            anchor: anchor,
+            anchor: line.anchor,
+            tangent: tangent,
             isRightToLeft: theme.isRightToLeft()
         )
 
@@ -330,23 +376,23 @@ public final class SkeletonView: UIView {
     }
 
     /// The stripe's own width, which is the band's thickness measured square to its slant. Keeping
-    /// the gradient at that width makes the band cover `bandWidth` points of the block whatever the
-    /// block's height.
+    /// the gradient at that width makes the band cover `bandWidth` points of the block across,
+    /// whatever the block's height.
     private var bandThickness: CGFloat {
-        bandWidth / sqrt(2)
+        bandWidth * cos(slant.magnitude)
     }
 
     /// The stripe's length along its slant: long enough to run past the block's top and bottom
     /// corners with the fade still inside the gradient.
     private func bandSpan(height: CGFloat) -> CGFloat {
-        (height + 2 * bandWidth) * sqrt(2)
+        (height + 2 * bandWidth) / max(cos(slant.magnitude), 0.1)
     }
 
-    /// The stripe's tilt from square: a quarter turn, mirrored for a trailing-to-leading sweep so
-    /// the band leans the way the pass runs.
+    /// The stripe's tilt: its angle from vertical, mirrored for a trailing-to-leading sweep so the
+    /// band leans the way the pass runs.
     private var slant: CGFloat {
-        let quarterTurn = CGFloat.pi / 4
-        return SkeletonTheme.current.isRightToLeft() ? -quarterTurn : quarterTurn
+        let radians = SkeletonTheme.current.shimmerAngle * .pi / 180
+        return SkeletonTheme.current.isRightToLeft() ? -radians : radians
     }
 
     /// Centres the stripe on the block and tips it. Rotating about the centre keeps the band's

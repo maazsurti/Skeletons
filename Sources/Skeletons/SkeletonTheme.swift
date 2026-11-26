@@ -17,8 +17,30 @@ public struct SkeletonTheme {
     public var shimmerDuration: TimeInterval
 
     /// The delay, in seconds, between one block's sweep and the next block's. The blocks on
-    /// screen cross in a wave rather than together. Zero puts them all back in phase.
+    /// screen cross in a wave rather than together. Zero puts them all back in phase. Read in
+    /// `.component` alignment only; a `.window` screen sweeps every block together.
     public var shimmerStagger: TimeInterval
+
+    /// The stripe's lean from vertical, in degrees: `0` is an upright band, `45` a quarter-turn
+    /// diagonal, and a negative value leans it the other way. Read as at most 80° either side, so
+    /// the band keeps its width. The default is `20`. Right-to-left layouts mirror it.
+    public var shimmerAngle: CGFloat {
+        get { angle }
+        set { angle = min(max(newValue, -Self.maxShimmerAngle), Self.maxShimmerAngle) }
+    }
+
+    /// How the highlight lines up across the skeletons on a screen.
+    public var shimmerAlignment: SkeletonShimmerAlignment
+
+    /// The stripe's tangent: how much of its `shimmerAngle` it gains across for each point down.
+    var shimmerTangent: CGFloat {
+        tan(shimmerAngle * .pi / 180)
+    }
+
+    /// The steepest a stripe may lean, in degrees.
+    static let maxShimmerAngle: CGFloat = 80
+
+    private var angle: CGFloat
 
     /// The shortest rest, in seconds, the band takes between one pass and the next. It is added to
     /// the pass, so every repeat begins with the whole band off the window for at least this long.
@@ -72,6 +94,8 @@ public struct SkeletonTheme {
         shimmerDuration: TimeInterval = 1.7,
         shimmerStagger: TimeInterval = 0.10,
         shimmerMinRest: TimeInterval = 0.25,
+        shimmerAlignment: SkeletonShimmerAlignment = .component,
+        shimmerAngle: CGFloat = 20,
         loadingText: String = "Loading",
         isRightToLeft: @escaping () -> Bool = {
             UIApplication.shared.userInterfaceLayoutDirection == .rightToLeft
@@ -94,6 +118,8 @@ public struct SkeletonTheme {
         self.shimmerDuration = shimmerDuration
         self.shimmerStagger = shimmerStagger
         self.shimmerMinRest = shimmerMinRest
+        self.shimmerAlignment = shimmerAlignment
+        self.angle = min(max(shimmerAngle, -Self.maxShimmerAngle), Self.maxShimmerAngle)
         self.loadingText = loadingText
         self.isRightToLeft = isRightToLeft
         self.spacing = spacing
@@ -141,6 +167,18 @@ public struct SkeletonTheme {
     public static let defaultFieldText = UIColor.placeholderText
 
     nonisolated(unsafe) public static var current = SkeletonTheme()
+}
+
+/// How the highlight lines up across the skeletons on one screen.
+public enum SkeletonShimmerAlignment: Sendable {
+
+    /// Each container runs its own wave: the components below the top one cross a stagger apart,
+    /// and a card's blocks draw one slash of their own.
+    case component
+
+    /// Every skeleton on the window crosses at once, on one line that runs across cards,
+    /// sections and containers.
+    case window
 }
 
 /// The soft shadow a skeleton card can draw, so a placeholder card reads as the raised card it

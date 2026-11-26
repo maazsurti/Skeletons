@@ -35,6 +35,7 @@ public final class SkeletonContainerView: UIView {
 
     public override func willMove(toWindow newWindow: UIWindow?) {
         super.willMove(toWindow: newWindow)
+        guard SkeletonTheme.current.shimmerAlignment == .component else { return }
         skeletonSweepStart = nil
     }
 
@@ -45,10 +46,16 @@ public final class SkeletonContainerView: UIView {
         }
     }
 
-    /// Starts the wave again from the container's leading edge: the clock is cleared and every block
-    /// inside takes its place again. Call it from a screen that finishes appearing, or that otherwise
-    /// reveals the skeleton late, so the wave starts when the screen settles.
+    /// Starts the wave again from the leading edge: the clock is cleared and every block inside
+    /// takes its place again. Call it from a screen that finishes appearing, or that otherwise
+    /// reveals the skeleton late, so the wave starts when the screen settles. In `.window` alignment
+    /// every skeleton on the window shares one wave, so this restarts that wave only when it is the
+    /// only one sweeping, and otherwise rejoins the wave already running.
     public func restartSweep() {
+        guard SkeletonTheme.current.shimmerAlignment == .component else {
+            SweepOrder.restartWindowWave(for: self)
+            return
+        }
         skeletonSweepStart = nil
         clearPlaces(in: self)
     }

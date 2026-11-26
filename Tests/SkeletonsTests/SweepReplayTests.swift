@@ -44,6 +44,7 @@ struct SweepReplayTests {
             height: shape.blockHeight,
             reach: shape.blockHeight,
             anchor: shape.originX,
+            tangent: 1,
             isRightToLeft: isRightToLeft
         )
         return travel.from + CGFloat(progress) * (travel.to - travel.from)
@@ -111,6 +112,7 @@ struct SweepReplayTests {
                     height: shape.blockHeight,
                     reach: shape.blockHeight,
                     anchor: shape.originX,
+                    tangent: 1,
                     isRightToLeft: isRightToLeft
                 )
                 let distance = abs(travel.to - travel.from)

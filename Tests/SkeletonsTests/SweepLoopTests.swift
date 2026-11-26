@@ -46,6 +46,7 @@ struct SweepLoopTests {
                     height: shape.blockHeight,
                     reach: shape.blockHeight,
                     anchor: shape.originX,
+                    tangent: 1,
                     isRightToLeft: isRightToLeft
                 )
                 let distance = abs(travel.to - travel.from)
@@ -82,6 +83,7 @@ struct SweepLoopTests {
             height: 40,
             reach: 40,
             anchor: 20,
+            tangent: 1,
             isRightToLeft: false
         )
         #expect(travel.from == -180)

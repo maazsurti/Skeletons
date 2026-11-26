@@ -39,7 +39,7 @@ struct ShimmerRestTests {
     /// part of the stripe inside the window around the wrap.
     private func gapBetweenRepeats(rest: TimeInterval) throws -> TimeInterval {
         let original = SkeletonTheme.current
-        SkeletonTheme.current = SkeletonTheme(shimmerDuration: 1.7, shimmerStagger: 0, shimmerMinRest: rest)
+        SkeletonTheme.current = SkeletonTheme(shimmerDuration: 1.7, shimmerStagger: 0, shimmerMinRest: rest, shimmerAngle: 45)
         defer { SkeletonTheme.current = original }
 
         let windowWidth: CGFloat = 402

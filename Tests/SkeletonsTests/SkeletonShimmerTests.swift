@@ -14,6 +14,7 @@ struct SkeletonShimmerTests {
             height: 80,
             reach: 80,
             anchor: 20,
+            tangent: 1,
             isRightToLeft: false
         )
         #expect(travel.from == -200)
@@ -25,6 +26,10 @@ struct SkeletonShimmerTests {
     /// finishes with the whole stripe, corners included, clear of the block.
     @Test func theSlantIsClearOfTheBlockAtBothEnds() throws {
         try #require(!UIAccessibility.isReduceMotionEnabled)
+
+        let original = SkeletonTheme.current
+        SkeletonTheme.current = SkeletonTheme(shimmerAngle: 45)
+        defer { SkeletonTheme.current = original }
 
         let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 402, height: 600))
         let block = SkeletonView.block(height: 150)
@@ -51,8 +56,9 @@ struct SkeletonShimmerTests {
         #expect(to + originX - height / 2 >= 402 - 0.001)
     }
 
-    /// The stripe leans 45° towards the way the pass runs, and mirrors when the layout does.
-    @Test func theBandLeansAt45DegreesAndMirrorsForRightToLeft() throws {
+    /// The stripe leans by the theme's angle towards the way the pass runs, and mirrors when the
+    /// layout does.
+    @Test func theBandLeansByItsAngleAndMirrorsForRightToLeft() throws {
         let leaning = try bandTransform(isRightToLeft: false)
         #expect(abs(abs(leaning.m12) - sin(CGFloat.pi / 4)) < 0.000_001)
         #expect(abs(abs(leaning.m11) - cos(CGFloat.pi / 4)) < 0.000_001)
@@ -70,6 +76,7 @@ struct SkeletonShimmerTests {
         SkeletonTheme.current = SkeletonTheme(
             shimmerDuration: original.shimmerDuration,
             shimmerStagger: original.shimmerStagger,
+            shimmerAngle: 45,
             isRightToLeft: { isRightToLeft }
         )
         defer { SkeletonTheme.current = original }
@@ -93,6 +100,10 @@ struct SkeletonShimmerTests {
     /// so a card's lines read one slash rather than a stepped band on each line.
     @Test func aCardsBlocksShareOneSlantedLine() throws {
         try #require(!UIAccessibility.isReduceMotionEnabled)
+
+        let original = SkeletonTheme.current
+        SkeletonTheme.current = SkeletonTheme(shimmerAngle: 45)
+        defer { SkeletonTheme.current = original }
 
         let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 402, height: 600))
         let layout = SkeletonLayout(spacing: 0) {
@@ -152,6 +163,7 @@ struct SkeletonShimmerTests {
             height: 80,
             reach: 80,
             anchor: 20,
+            tangent: 1,
             isRightToLeft: false
         )
         let rightToLeft = SkeletonView.sweepTravel(
@@ -160,6 +172,7 @@ struct SkeletonShimmerTests {
             height: 80,
             reach: 80,
             anchor: 20,
+            tangent: 1,
             isRightToLeft: true
         )
 
